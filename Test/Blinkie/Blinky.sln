@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30523.141
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32616.157
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Blinkie", "Blinkie\Blinkie.csproj", "{B1E5A334-F139-496D-ACF7-1CCB6840DACA}"
 EndProject
@@ -18,6 +18,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Blinkie31", "Blinkie31\Blinkie31.csproj", "{6EEFF8C7-49AA-4A94-84DA-B7E9CAE34160}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionFolder", "SolutionFolder", "{F415615A-B38A-49E0-8296-D81F9B97E352}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebApi", "WebApi\WebApi.csproj", "{A3D15A5D-3BB4-4E93-BDFD-711BC97B1374}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -49,6 +51,10 @@ Global
 		{6EEFF8C7-49AA-4A94-84DA-B7E9CAE34160}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6EEFF8C7-49AA-4A94-84DA-B7E9CAE34160}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6EEFF8C7-49AA-4A94-84DA-B7E9CAE34160}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3D15A5D-3BB4-4E93-BDFD-711BC97B1374}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3D15A5D-3BB4-4E93-BDFD-711BC97B1374}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3D15A5D-3BB4-4E93-BDFD-711BC97B1374}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3D15A5D-3BB4-4E93-BDFD-711BC97B1374}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

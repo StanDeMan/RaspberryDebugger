@@ -2,5 +2,7 @@
 	<PropertyGroup>
 	  <TargetFramework>net6.0</TargetFramework>
 	  <RuntimeIdentifier>linux-arm</RuntimeIdentifier>
+	  <PlatformTarget>AnyCPU</PlatformTarget>
+	  <SignAssembly>True</SignAssembly>
   </PropertyGroup>
 </Project>

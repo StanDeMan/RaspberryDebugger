@@ -163,7 +163,7 @@ namespace RaspberryDebugger.Commands
                 if (!projectProperties.IsAspNet || !projectProperties.AspLaunchBrowser)
                     return;
                 
-                var baseUri     = $"http://{connection.Name}.local";
+                var baseUri     = $"http://{connection.Name}";
                 var launchReady = false;
 
                 await NeonHelper.WaitForAsync(
@@ -180,7 +180,7 @@ namespace RaspberryDebugger.Commands
                         {
                             var appListeningScript =
                                 $@"
-                                    if lsof -i -P -n | grep --quiet 'TCP 127.0.0.1:{projectProperties.AspPort}' ; then
+                                    if lsof -i -P -n | grep -q 'TCP 127.0.0.1:{projectProperties.AspPort}\|TCP 0.0.0.0:{projectProperties.AspPort}\|TCP \*:{projectProperties.AspPort}' ; then
                                         exit 0
                                     else
                                         exit 1
@@ -212,7 +212,7 @@ namespace RaspberryDebugger.Commands
 
                 if (launchReady)
                 {
-                    NeonHelper.OpenBrowser($"{baseUri}{projectProperties.AspRelativeBrowserUri}");
+                    NeonHelper.OpenBrowser($"{baseUri}:{projectProperties.AspPort}/{projectProperties.AspRelativeBrowserUri}");
                 }
             }
         }
@@ -277,7 +277,7 @@ namespace RaspberryDebugger.Commands
 
             if (projectProperties?.IsAspNet == true)
             {
-                environmentVariables["ASPNETCORE_URLS"] = $"http://127.0.0.1:{projectProperties.AspPort}";
+                environmentVariables["ASPNETCORE_URLS"] = $"http://0.0.0.0:{projectProperties.AspPort}";
             }
 
             // Construct the debug launch JSON file.
@@ -287,6 +287,7 @@ namespace RaspberryDebugger.Commands
             // Uncomment this to have the remote debugger log the traffic it
             // sees from Visual Studio for debugging purposes.  The log file
             // is persisted to the program folder on the Raspberry.
+
 
             engineLogging = $"--engineLogging={debugFolder}/__vsdbg-log.txt";
 #endif

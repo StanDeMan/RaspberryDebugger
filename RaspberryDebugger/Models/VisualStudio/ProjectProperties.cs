@@ -173,7 +173,8 @@ namespace RaspberryDebugger.Models.VisualStudio
                             }
 
                             // Extract additional settings for ASPNET projects.
-                            if (settings.Property("iisSettings") == null) continue;
+                            var jProperty = profileObject.Property("applicationUrl");
+                            if (jProperty == null) continue;
                             
                             isAspNet = true;
 
@@ -181,9 +182,8 @@ namespace RaspberryDebugger.Models.VisualStudio
                             // issues parsing the application URL.
                             const int fallbackPort = 5000;
 
-                            var jProperty = profileObject.Property("applicationUrl");
 
-                            if (jProperty != null && jProperty.Value.Type == JTokenType.String)
+                            if (jProperty.Value.Type == JTokenType.String)
                             {
                                 try
                                 {
@@ -211,6 +211,30 @@ namespace RaspberryDebugger.Models.VisualStudio
                             if (jProperty != null && jProperty.Value.Type == JTokenType.Boolean)
                             {
                                 aspLaunchBrowser = (bool)jProperty.Value;
+                            }
+
+                            jProperty = profileObject.Property("launchUrl");
+
+                            if (jProperty == null ||
+                                jProperty.Value.Type != JTokenType.String)
+                                continue;
+
+                            var launchUri = (string)jProperty.Value;
+
+                            if (string.IsNullOrEmpty(launchUri)) continue;
+
+                            try
+                            {
+                                var uri = new Uri(launchUri, UriKind.RelativeOrAbsolute);
+
+                                aspRelativeBrowserUri = uri.IsAbsoluteUri
+                                    ? uri.PathAndQuery
+                                    : launchUri;
+                            }
+                            catch
+                            {
+                                // We'll fall back to "/" for any URI parsing errors.
+                                aspRelativeBrowserUri = "/";
                             }
                         }
                         else if (profile.Name == "IIS Express")
