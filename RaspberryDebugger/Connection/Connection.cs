@@ -135,17 +135,17 @@ namespace RaspberryDebugger.Connection
                     var homeFolder = LinuxPath.Combine("/", "home", connectionInfo.User);
                     var publicKey  = File.ReadAllText(connectionInfo.PublicKeyPath).Trim();
                     var keyScript  =
-                        $@"
-                        mkdir -p {homeFolder}/.ssh
-                        touch {homeFolder}/.ssh/authorized_keys
-
-                        if ! grep --quiet '{publicKey}' {homeFolder}/.ssh/authorized_keys ; then
-                            echo '{publicKey}' >> {homeFolder}/.ssh/authorized_keys
-                            exit $?
-                        fi
-
-                        exit 0
-                        ";
+                        $"""
+                         mkdir -p {homeFolder}/.ssh
+                         touch {homeFolder}/.ssh/authorized_keys
+ 
+                         if ! grep --quiet '{publicKey}' {homeFolder}/.ssh/authorized_keys ; then
+                             echo '{publicKey}' >> {homeFolder}/.ssh/authorized_keys
+                             exit $?
+                         fi
+ 
+                         exit 0
+                         """;
 
                     connection.ThrowOnError(connection.RunCommand(CommandBundle.FromScript(keyScript)));
                     return connection;
@@ -162,7 +162,7 @@ namespace RaspberryDebugger.Connection
                 RaspberryDebugger.Log.Exception(e, $"[{connectionInfo?.Host}]");
                 Log($"[{connectionInfo?.Host}]: Cannot reach device.");
 
-                return null;
+                throw;
             }
         }
 
@@ -310,83 +310,91 @@ namespace RaspberryDebugger.Connection
                     Log($"[{Name}]: Retrieving status");
 
                     var statusScript =
-                        $@"
-                        # This script will return the status information via STDOUT line-by-line
-                        # in this order:
-                        #
-                        # Chip Architecture
-                        # PATH environment variable
-                        # Unzip Installed (""unzip"" or ""unzip-missing"")
-                        # Debugger Installed (""debugger-installed"" or ""debugger-missing"")
-                        # List of installed SDKs names (e.g. 3.1.108) separated by commas
-                        # Raspberry Model like:     Raspberry Pi 4 Model B Rev 1.2
-                        # Raspberry Revision like:  c03112
-                        #
-                        # This script also ensures that the [/lib/dotnet] directory exists, that
-                        # it has reasonable permissions, and that the folder exists on the system
-                        # PATH and that DOTNET_ROOT points to the folder.
-
-                        # Set the SDK and debugger installation paths.
-
-                        DOTNET_ROOT={PackageHelper.RemoteDotnetFolder}
-                        DEBUGFOLDER={PackageHelper.RemoteDebuggerFolder}
-
-                        # Get the chip architecture
-                        uname -m
-
-                        # Get the current PATH
-                        echo $PATH
-
-                        # Detect whether [unzip] is installed.
-                        if which unzip &> /dev/nul ; then
-                            echo 'unzip'
-                        else
-                            echo 'unzip-missing'
-                        fi
-
-                        # Detect whether the [vsdbg] debugger is installed.
-                        if [ -d $DEBUGFOLDER ] ; then
-                            echo 'debugger-installed'
-                        else
-                            echo 'debugger-missing'
-                        fi
-
-                        # List the SDK folders.  These folder names are the same as the
-                        # corresponding SDK name.  We'll list the files on one line
-                        # with the SDK names separated by commas.  We'll return a blank
-                        # line if the SDK directory doesn't exist.
-                        if [ -d $DOTNET_ROOT/sdk ] ; then
-                            ls -m $DOTNET_ROOT/sdk
-                        else
-                            echo ''
-                        fi
-
-                        # Output the Raspberry board model.
-                        cat /proc/cpuinfo | grep '^Model\s' | grep -o 'Raspberry.*$'
-
-                        # Output the Raspberry board revision.
-                        cat /proc/cpuinfo | grep 'Revision\s' | grep -o '[0-9a-fA-F]*$'
-
-                        # Ensure that the [/lib/dotnet] folder exists, that it's on the
-                        # PATH and that DOTNET_ROOT are defined.
-                        mkdir -p /lib/dotnet
-                        chown root:root /lib/dotnet
-                        chmod 755 /lib/dotnet
-
-                        # Set these for the current session:
-                        export DOTNET_ROOT={PackageHelper.RemoteDotnetFolder}
-                        export PATH=$PATH:$DOTNET_ROOT
-
-                        # and for future sessions too:
-                        if ! grep --quiet DOTNET_ROOT /etc/profile ; then
-                            echo """"                                >> /etc/profile
-                            echo ""#------------------------------"" >> /etc/profile
-                            echo ""# Raspberry Debugger:""           >> /etc/profile
-                            echo ""export DOTNET_ROOT=$DOTNET_ROOT"" >> /etc/profile
-                            echo ""export PATH=$PATH""               >> /etc/profile
-                            echo ""#------------------------------"" >> /etc/profile
-                        fi
-                        ";
+                        $"""
+                         # This script will return the status information via STDOUT line-by-line
+                         # in this order:
+                         #
+                         # Chip Architecture
+                         # PATH environment variable
+                         # Unzip Installed ("unzip" or "unzip-missing")
+                         # Lsof Installed ("lsof" or "lsof-missing")
+                         # Debugger Installed ("debugger-installed" or "debugger-missing")
+                         # List of installed SDKs names (e.g. 3.1.108) separated by commas
+                         # Raspberry Model like:     Raspberry Pi 4 Model B Rev 1.2
+                         # Raspberry Revision like:  c03112
+                         #
+                         # This script also ensures that the [/lib/dotnet] directory exists, that
+                         # it has reasonable permissions, and that the folder exists on the system
+                         # PATH and that DOTNET_ROOT points to the folder.
+ 
+                         # Set the SDK and debugger installation paths.
+ 
+                         DOTNET_ROOT={PackageHelper.RemoteDotnetFolder}
+                         DEBUGFOLDER={PackageHelper.RemoteDebuggerFolder}
+ 
+                         # Get the chip architecture
+                         uname -m
+ 
+                         # Get the current PATH
+                         echo $PATH
+ 
+                         # Detect whether [unzip] is installed.
+                         if which unzip &> /dev/null ; then
+                             echo 'unzip'
+                         else
+                             echo 'unzip-missing'
+                         fi
+ 
+                         # Detect whether [lsof] is installed.
+                         if which lsof &> /dev/null ; then
+                             echo 'lsof'
+                         else
+                             echo 'lsof-missing'
+                         fi
+ 
+                         # Detect whether the [vsdbg] debugger is installed.
+                         if [ -d $DEBUGFOLDER ] ; then
+                             echo 'debugger-installed'
+                         else
+                             echo 'debugger-missing'
+                         fi
+ 
+                         # List the SDK folders.  These folder names are the same as the
+                         # corresponding SDK name.  We'll list the files on one line
+                         # with the SDK names separated by commas.  We'll return a blank
+                         # line if the SDK directory doesn't exist.
+                         if [ -d $DOTNET_ROOT/sdk ] ; then
+                             ls -m $DOTNET_ROOT/sdk
+                         else
+                             echo ''
+                         fi
+ 
+                         # Output the Raspberry board model.
+                         cat /proc/cpuinfo | grep '^Model\s' | grep -o 'Raspberry.*$'
+ 
+                         # Output the Raspberry board revision.
+                         cat /proc/cpuinfo | grep 'Revision\s' | grep -o '[0-9a-fA-F]*$'
+ 
+                         # Ensure that the [/lib/dotnet] folder exists, that it's on the
+                         # PATH and that DOTNET_ROOT are defined.
+                         mkdir -p /lib/dotnet
+                         chown root:root /lib/dotnet
+                         chmod 755 /lib/dotnet
+ 
+                         # Set these for the current session:
+                         export DOTNET_ROOT={PackageHelper.RemoteDotnetFolder}
+                         export PATH=$PATH:$DOTNET_ROOT
+ 
+                         # and for future sessions too:
+                         if ! grep --quiet DOTNET_ROOT /etc/profile ; then
+                             echo ""                                >> /etc/profile
+                             echo "#------------------------------" >> /etc/profile
+                             echo "# Raspberry Debugger:"           >> /etc/profile
+                             echo "export DOTNET_ROOT=$DOTNET_ROOT" >> /etc/profile
+                             echo "export PATH=$PATH"               >> /etc/profile
+                             echo "#------------------------------" >> /etc/profile
+                         fi
+                         """;
 
                     Log($"[{Name}]: Fetching status");
 
@@ -398,6 +406,7 @@ namespace RaspberryDebugger.Connection
                         var processor    = await reader.ReadLineAsync();
                         var path         = await reader.ReadLineAsync();
                         var hasUnzip     = await reader.ReadLineAsync() == "unzip";
+                        var hasLsof      = await reader.ReadLineAsync() == "lsof";
                         var hasDebugger  = await reader.ReadLineAsync() == "debugger-installed";
                         var sdkLine      = await reader.ReadLineAsync();
                         var model        = await reader.ReadLineAsync();
@@ -408,6 +417,7 @@ namespace RaspberryDebugger.Connection
                         Log($"[{Name}]: processor: {processor}");
                         Log($"[{Name}]: path:      {path}");
                         Log($"[{Name}]: unzip:     {hasUnzip}");
+                        Log($"[{Name}]: lsof:      {hasLsof}");
                         Log($"[{Name}]: debugger:  {hasDebugger}");
                         Log($"[{Name}]: sdks:      {sdkLine}");
                         Log($"[{Name}]: model:     {model}");
@@ -449,6 +459,7 @@ namespace RaspberryDebugger.Connection
                             processor:     processor,
                             path:          path,
                             hasUnzip:      hasUnzip,
+                            hasLsof:       hasLsof,
                             hasDebugger:   hasDebugger,
                             installedSdks: sdks,
                             model:         model,
@@ -480,19 +491,19 @@ namespace RaspberryDebugger.Connection
                         try
                         {
                             var createKeyScript =
-                                $@"
-                                # Create the key pair
-                                if ! ssh-keygen -t rsa -b 2048 -P '' -C '{workstationUser}@{workstationName}' -f {tempPrivateKeyPath} -m pem ; then
-                                    exit 1
-                                fi
-
-                                # Append the public key to the user's [authorized_keys] file to enable it.
-                                mkdir -p {homeFolder}/.ssh
-                                touch {homeFolder}/.ssh/authorized_keys
-                                cat {tempPublicKeyPath} >> {homeFolder}/.ssh/authorized_keys
-
-                                exit 0
-                                ";
+                                $"""
+                                 # Create the key pair
+                                 if ! ssh-keygen -t rsa -b 2048 -P '' -C '{workstationUser}@{workstationName}' -f {tempPrivateKeyPath} -m pem ; then
+                                     exit 1
+                                 fi
+ 
+                                 # Append the public key to the user's [authorized_keys] file to enable it.
+                                 mkdir -p {homeFolder}/.ssh
+                                 touch {homeFolder}/.ssh/authorized_keys
+                                 cat {tempPublicKeyPath} >> {homeFolder}/.ssh/authorized_keys
+ 
+                                 exit 0
+                                 """;
 
                             ThrowOnError(RunCommand(CommandBundle.FromScript(createKeyScript)));
 
@@ -521,10 +532,10 @@ namespace RaspberryDebugger.Connection
                         {
                             // Delete the temporary key files on the Raspberry.
                             var removeKeyScript =
-                                $@"
-                                rm -f {tempPrivateKeyPath}
-                                rm -f {tempPublicKeyPath}
-                                ";
+                                $"""
+                                 rm -f {tempPrivateKeyPath}
+                                 rm -f {tempPublicKeyPath}
+                                 """;
 
                             ThrowOnError(SudoCommand(CommandBundle.FromScript(removeKeyScript)));
                         }
@@ -579,30 +590,30 @@ namespace RaspberryDebugger.Connection
                 async () =>
                 {
                     var downloadScript =
-                        $@"
-                        # Ensure that the packages required by .NET Core are installed:
-                        # https://docs.microsoft.com/en-us/dotnet/core/install/linux-debian#dependencies
-                        if ! apt-get update ; then
-                            exit 1
-                        fi
-
-                        if ! apt-get install -yq libc6 libgcc1 libgssapi-krb5-2 libicu-dev libssl1.1 libstdc++6 zlib1g libgdiplus ; then
-                            exit 1
-                        fi
-
-                        # Remove any existing SDK download.  This might be 
-                        # present if a previous installation attempt failed.
-                        if ! rm -f /tmp/dotnet-sdk.tar.gz ; then
-                            exit 1
-                        fi
-
-                        # Download the SDK installation file to a temporary file.
-                        if ! wget --quiet -O /tmp/dotnet-sdk.tar.gz {targetSdk.Link} ; then
-                            exit 1
-                        fi
-
-                        exit 0
-                        ";
+                        $"""
+                         # Ensure that the packages required by .NET Core are installed:
+                         # https://docs.microsoft.com/en-us/dotnet/core/install/linux-debian#dependencies
+                         if ! apt-get update ; then
+                             exit 1
+                         fi
+ 
+                         if ! apt-get install -yq libc6 libgcc1 libgssapi-krb5-2 libicu-dev libssl1.1 libstdc++6 zlib1g libgdiplus ; then
+                             exit 1
+                         fi
+ 
+                         # Remove any existing SDK download.  This might be
+                         # present if a previous installation attempt failed.
+                         if ! rm -f /tmp/dotnet-sdk.tar.gz ; then
+                             exit 1
+                         fi
+ 
+                         # Download the SDK installation file to a temporary file.
+                         if ! wget --quiet -O /tmp/dotnet-sdk.tar.gz {targetSdk.Link} ; then
+                             exit 1
+                         fi
+ 
+                         exit 0
+                         """;
 
                     try
                     {
@@ -644,37 +655,37 @@ namespace RaspberryDebugger.Connection
                 async () =>
                 {
                     var installScript =
-                        $@"
-                        export DOTNET_ROOT={PackageHelper.RemoteDotnetFolder}
-
-                        # Verify the SHA512.
-                        orgDir=$cwd
-                        cd /tmp
-
-                        if ! echo '{targetSdk.Sha512} dotnet-sdk.tar.gz' | sha512sum --check - ; then
-                            cd $orgDir
-                            exit 1
-                        fi
-
-                        cd $orgDir
-
-                        # Make sure the installation directory exists.
-                        if ! mkdir -p $DOTNET_ROOT ; then
-                            exit 1
-                        fi
-
-                        # Unpack the SDK to the installation directory.
-                        if ! tar -zxf /tmp/dotnet-sdk.tar.gz -C $DOTNET_ROOT --no-same-owner ; then
-                            exit 1
-                        fi
-
-                        # Remove the temporary installation file.
-                        if ! rm /tmp/dotnet-sdk.tar.gz ; then
-                            exit 1
-                        fi
-
-                        exit 0
-                        ";
+                        $"""
+                         export DOTNET_ROOT={PackageHelper.RemoteDotnetFolder}
+ 
+                         # Verify the SHA512.
+                         orgDir=$cwd
+                         cd /tmp
+ 
+                         if ! echo '{targetSdk.Sha512} dotnet-sdk.tar.gz' | sha512sum --check - ; then
+                             cd $orgDir
+                             exit 1
+                         fi
+ 
+                         cd $orgDir
+ 
+                         # Make sure the installation directory exists.
+                         if ! mkdir -p $DOTNET_ROOT ; then
+                             exit 1
+                         fi
+ 
+                         # Unpack the SDK to the installation directory.
+                         if ! tar -zxf /tmp/dotnet-sdk.tar.gz -C $DOTNET_ROOT --no-same-owner ; then
+                             exit 1
+                         fi
+ 
+                         # Remove the temporary installation file.
+                         if ! rm /tmp/dotnet-sdk.tar.gz ; then
+                             exit 1
+                         fi
+ 
+                         exit 0
+                         """;
 
                     try
                     {
@@ -750,13 +761,13 @@ namespace RaspberryDebugger.Connection
                 async () =>
                 {
                     var installScript =
-                        $@"
-                        if ! curl -sSL https://aka.ms/getvsdbgsh | /bin/sh /dev/stdin -v latest -l {PackageHelper.RemoteDebuggerFolder} ; then
-                            exit 1
-                        fi
+                        $"""
+                         if ! curl -sSL https://aka.ms/getvsdbgsh | /bin/sh /dev/stdin -v latest -l {PackageHelper.RemoteDebuggerFolder} ; then
+                             exit 1
+                         fi
 
-                        exit 0
-                        ";
+                         exit 0
+                         """;
 
                     try
                     {
@@ -774,6 +785,52 @@ namespace RaspberryDebugger.Connection
                             LogError(response.AllText);
                             return await Task.FromResult(false);
                         }
+                    }
+                    catch (Exception e)
+                    {
+                        LogException(e);
+                        return await Task.FromResult(false);
+                    }
+                });
+        }
+
+        /// <summary>
+        /// Installs the Linux dependencies on the Raspberry if it's not already installed.
+        /// </summary>
+        /// <returns><c>true</c> on success.</returns>
+        public async Task<bool> SetupLinuxDependenciesAsync()
+        {
+            if (PiStatus.HasUnzip && PiStatus.HasLsof)
+            {
+                return await Task.FromResult(true);
+            }
+
+            LogInfo("Installing Linux dependencies");
+
+            return await PackageHelper.ExecuteWithProgressAsync("Installing Linux dependencies...",
+                async () =>
+                {
+                    var installScript =
+                        $"""
+                         if ! apt-get install -yq {(PiStatus.HasLsof ? null : "lsof")} {(PiStatus.HasUnzip ? null : "unzip")} ; then
+                             exit 1
+                         fi
+
+                         exit 0
+                         """;
+
+                    try
+                    {
+                        var response = SudoCommand(CommandBundle.FromScript(installScript));
+
+                        if (response.ExitCode == 0)
+                        {
+                            PiStatus.HasUnzip = true;
+                            PiStatus.HasLsof = true;
+                            return await Task.FromResult(true);
+                        }
+                        LogError(response.AllText);
+                        return await Task.FromResult(false);
                     }
                     catch (Exception e)
                     {
