@@ -37,13 +37,13 @@ namespace RaspberryDebugger.Commands
         {
             // search for dotnet kestrel web server
             var appKestrelListeningScript =
-                $@"
-                    if lsof -i -P -n | grep --quiet 'dotnet\|TCP\|:{aspPort}' ; then
-                        exit 0
-                    else
-                        exit 1
-                    fi
-                ";
+                $"""
+                 if lsof -i -P -n | grep --quiet 'dotnet\|TCP\|:{aspPort}' ; then
+                     exit 0
+                 else
+                     exit 1
+                 fi
+                 """;
 
             var response = ExecSudoCmd(appKestrelListeningScript, connection);
 
@@ -62,13 +62,13 @@ namespace RaspberryDebugger.Commands
         {
             // search for web server running as reverse proxy
             var appWebServerListeningScript =
-                $@"
-                    if lsof -i -P -n | grep --quiet 'TCP 127.0.0.1:{aspPort}' ; then
-                        exit 0
-                    else
-                        exit 1
-                    fi
-                ";
+                $"""
+                 if lsof -i -P -n | grep --quiet 'TCP 127.0.0.1:{aspPort}' ; then
+                     exit 0
+                 else
+                     exit 1
+                 fi
+                 """;
 
             var response = ExecSudoCmd(appWebServerListeningScript, connection);
 
