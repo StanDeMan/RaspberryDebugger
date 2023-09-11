@@ -33,6 +33,7 @@ namespace RaspberryDebugger.Connection
         /// </summary>
         /// <param name="processor">The chip architecture.</param>
         /// <param name="hasUnzip">Indicates whether <b>unzip</b> is installed.</param>
+        /// <param name="hasLsof">Indicates whether <b>lsof</b> is installed.</param>
         /// <param name="hasDebugger">Indicates whether the debugger is installed.</param>
         /// <param name="installedSdks">The installed .NET Core SDKs.</param>
         /// <param name="path">The current value of the PATH environment variable.</param>
@@ -43,6 +44,7 @@ namespace RaspberryDebugger.Connection
             string              processor, 
             string              path, 
             bool                hasUnzip, 
+            bool                hasLsof, 
             bool                hasDebugger, 
             IEnumerable<Sdk>    installedSdks,
             string              model,
@@ -56,6 +58,7 @@ namespace RaspberryDebugger.Connection
             this.Processor         = processor;
             this.Path              = path;
             this.HasUnzip          = hasUnzip;
+            this.HasLsof           = hasLsof;
             this.HasDebugger       = hasDebugger;
             this.InstalledSdks     = installedSdks?.ToList();
             this.RaspberryModel    = model;
@@ -77,7 +80,12 @@ namespace RaspberryDebugger.Connection
         /// Returns <c>true</c> if <b>unzip</b> is installed on the Raspberry Pi.
         /// This is required and will be installed automatically.
         /// </summary>
-        private bool HasUnzip { get; set; }
+        public bool HasUnzip { get; set; }
+        /// <summary>
+        /// Returns <c>true</c> if <b>lsof</b> is installed on the Raspberry Pi.
+        /// This is required and will be installed automatically.
+        /// </summary>
+        public bool HasLsof { get; set; }
 
         /// <summary>
         /// Indicates whether the <b>vsdbg</b> debugger is installed.

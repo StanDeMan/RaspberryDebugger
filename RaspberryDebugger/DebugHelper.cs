@@ -283,20 +283,40 @@ namespace RaspberryDebugger
 
             var errorList = dte?.ToolWindows.ErrorList.ErrorItems;
 
+            var warnings = 0;
+            var messages = 0;
             if (errorList?.Count > 0)
             {
+                var errors = 0;
                 for (var i = 1; i <= errorList.Count; i++)
                 {
                     var error = errorList.Item(i);
-                    Log.Error($"{error.FileName}({error.Line},{error.Column}: {error.Description})");
+                    switch (error.ErrorLevel)
+                    {
+                        case vsBuildErrorLevel.vsBuildErrorLevelHigh:
+                            Log.Error($"{error.FileName}({error.Line},{error.Column}: {error.Description})");
+                            errors++;
+                            break;
+                        case vsBuildErrorLevel.vsBuildErrorLevelMedium:
+                            Log.Warning($"{error.FileName}({error.Line},{error.Column}: {error.Description})");
+                            warnings++;
+                            break;
+                        default:
+                            Log.Info($"{error.FileName}({error.Line},{error.Column}: {error.Description})");
+                            messages++;
+                            break;
+                    }
                 }
 
-                Log.Error($"Build failed: [{errorList.Count}] errors");
-                Log.Error("See the Build/Output panel for more information");
-                return false;
+                if (errors > 0)
+                {
+                    Log.Error($"Build failed: [{errors}] errors");
+                    Log.Error("See the Build/Output panel for more information");
+                    return false;
+                }
             }
 
-            Log.Info("Build succeeded");
+            Log.Info($"Build succeeded{(warnings > 0 ? $", with {warnings} warnigns" : null)}{(messages > 0 ? $", with {messages} messages" : null)}");
 
             // Publish the project so all required binaries and assets end up
             // in the output folder.
@@ -312,7 +332,7 @@ namespace RaspberryDebugger
             await Task.Yield();
 
             const string allowedVariableNames = 
-                @"
+                """
                 ALLUSERSPROFILE
                 APPDATA
                 architecture
@@ -351,7 +371,7 @@ namespace RaspberryDebugger
                 USERNAME
                 USERPROFILE
                 windir
-                ";
+                """;
 
             var allowedVariables     = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
             var environmentVariables = new Dictionary<string, string>();
@@ -570,6 +590,22 @@ namespace RaspberryDebugger
                 return null;
             }
 
+            // Ensure that linux libraries are installed.
+            if (!await connection.SetupLinuxDependenciesAsync())
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                MessageBoxEx.Show(
+                    "Cannot install the Linux dependencies on the Raspberry.\r\n\r\nCheck the Debug Output for more details.",
+                    "Linux Dependencies Installation Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+
+                connection.Dispose();
+
+                return null;
+            }
+
             // Upload the program binaries.
             if (await connection.UploadProgramAsync(
                     projectProperties?.Name, 
@@ -592,4 +628,3 @@ namespace RaspberryDebugger
         }
     }
 }
-

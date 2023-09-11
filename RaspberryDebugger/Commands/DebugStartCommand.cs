@@ -205,7 +205,8 @@ namespace RaspberryDebugger.Commands
 
                 if (!launchReady) return;
 
-                OpenWebBrowser(projectProperties, foundWebServer, connection);
+                await Task.Delay(3000);
+                OpenWebBrowser(projectProperties, projectSettings, foundWebServer, connection);
             }
         }
 
@@ -213,16 +214,17 @@ namespace RaspberryDebugger.Commands
         /// Open web browser for debugging
         /// </summary>
         /// <param name="projectProperties">Related project properties</param>
+        /// <param name="projectSettings"></param>
         /// <param name="foundWebServer">Active WebServer: Kestrel or Other (NGiNX, Apache, etc.)</param>
         /// <param name="connection">LinuxSshProxy connection</param>
-        private static void OpenWebBrowser(
-            ProjectProperties projectProperties, 
-            WebServer foundWebServer, 
+        private static void OpenWebBrowser(ProjectProperties projectProperties,
+            ProjectSettings projectSettings,
+            WebServer foundWebServer,
             LinuxSshProxy connection)
         {
             // only '/' present or full relative uri
             const int fullRelativeUri = 2;
-            var baseUri = $"http://{connection.Name}.local";
+            var baseUri = projectSettings.UseWebServerProxy ? $"http://{connection.Name}.local" : $"http://{connection.Name}";
 
             var relativeBrowserUri = projectProperties.AspRelativeBrowserUri.FirstOrDefault() == '/'
                 ? projectProperties.AspRelativeBrowserUri
