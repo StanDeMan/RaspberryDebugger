@@ -129,7 +129,6 @@ namespace RaspberryDebugger
         private DTE2 dte;
         private CommandEvents debugStartCommandEvent;
         private CommandEvents debugStartWithoutDebuggingCommandEvent;
-        private CommandEvents debugAttachToProcessCommandEvent;
         private CommandEvents debugRestartCommandEvent;
 #pragma warning disable IDE0051 // Remove unused private members
         private readonly bool debugMode = false;
@@ -174,19 +173,16 @@ namespace RaspberryDebugger
             // debugging.
             debugStartCommandEvent = dte.Events.CommandEvents["{5EFC7975-14BC-11CF-9B2B-00AA00573819}", 0x0127];
             debugStartWithoutDebuggingCommandEvent = dte.Events.CommandEvents["{5EFC7975-14BC-11CF-9B2B-00AA00573819}", 0x0170];
-            debugAttachToProcessCommandEvent = dte.Events.CommandEvents["{5EFC7975-14BC-11CF-9B2B-00AA00573819}", 0x00d5];
             debugRestartCommandEvent = dte.Events.CommandEvents["{5EFC7975-14BC-11CF-9B2B-00AA00573819}", 0x0128];
 
             debugStartCommandEvent.BeforeExecute += DebugStartCommandEvent_BeforeExecute;
             debugStartWithoutDebuggingCommandEvent.BeforeExecute += DebugStartWithoutDebuggingCommandEvent_BeforeExecute;
-            debugAttachToProcessCommandEvent.BeforeExecute += AttachToProcessCommandEvent_BeforeExecute;
             debugRestartCommandEvent.BeforeExecute += DebugRestartCommandEvent_BeforeExecute;
 
             // Initialize the new commands.
             await SettingsCommand.InitializeAsync(this);
             await DebugStartCommand.InitializeAsync(this);
             await DebugStartWithoutDebuggingCommand.InitializeAsync(this);
-            await DebugAttachToProcessCommand.InitializeAsync(this);
         }
 
         /// <summary>
@@ -302,24 +298,6 @@ namespace RaspberryDebugger
 
             cancelDefault = true;
             ExecuteCommand(DebugStartWithoutDebuggingCommand.CommandSet, DebugStartWithoutDebuggingCommand.CommandId);
-        }
-
-        /// <summary>
-        /// Debug.AttachToProcess
-        /// </summary>
-        private void AttachToProcessCommandEvent_BeforeExecute(string guid, int id, object customIn, object customOut, ref bool cancelDefault)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
-            var connectionName = GetConnectionName();
-
-            if (connectionName == null)
-            {
-                return;
-            }
-
-            cancelDefault = true;
-            ExecuteCommand(DebugAttachToProcessCommand.CommandSet, DebugAttachToProcessCommand.CommandId);
         }
 
         /// <summary>
