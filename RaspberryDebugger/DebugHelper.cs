@@ -419,6 +419,11 @@ namespace RaspberryDebugger
                     return true;
                 }
 
+                // bring ErrorList window to the top of the z order.
+                dte.Application.ExecuteCommand("View.Output", " ");
+
+                await Task.Yield();
+
                 Log.Error($"Publish failed: ExitCode={response.ExitCode}");
                 Log.WriteLine(response.AllText);
 
