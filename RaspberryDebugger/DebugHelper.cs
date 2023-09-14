@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // FILE:	    DebugHelper.cs
 // CONTRIBUTOR: Jeff Lill
 // COPYRIGHT:   Copyright (c) 2021 by neonFORGE, LLC.  All rights reserved.
@@ -46,6 +46,7 @@ namespace RaspberryDebugger
     internal static class DebugHelper
     {
         private const string SupportedVersions = ".NET Core 3.1 or .NET 5 + 6";
+
         /// <summary>
         /// Ensures that the native Windows OpenSSH client is installed, prompting
         /// the user to install it if necessary.
@@ -276,47 +277,24 @@ namespace RaspberryDebugger
             }
 
             // Build the project to ensure that there are no compile-time errors.
-
             Log.Info($"Building: {projectProperties?.FullPath}");
-
+            
             solution?.SolutionBuild.BuildProject(solution.SolutionBuild.ActiveConfiguration.Name, project?.UniqueName, WaitForBuildToFinish: true);
 
-            var errorList = dte?.ToolWindows.ErrorList.ErrorItems;
-
-            var warnings = 0;
-            var messages = 0;
-            if (errorList?.Count > 0)
+            // if any projects failed to build notify and exit
+            if ( solution.SolutionBuild.LastBuildInfo != 0 )
             {
-                var errors = 0;
-                for (var i = 1; i <= errorList.Count; i++)
-                {
-                    var error = errorList.Item(i);
-                    switch (error.ErrorLevel)
-                    {
-                        case vsBuildErrorLevel.vsBuildErrorLevelHigh:
-                            Log.Error($"{error.FileName}({error.Line},{error.Column}: {error.Description})");
-                            errors++;
-                            break;
-                        case vsBuildErrorLevel.vsBuildErrorLevelMedium:
-                            Log.Warning($"{error.FileName}({error.Line},{error.Column}: {error.Description})");
-                            warnings++;
-                            break;
-                        default:
-                            Log.Info($"{error.FileName}({error.Line},{error.Column}: {error.Description})");
-                            messages++;
-                            break;
-                    }
-                }
+                // bring ErrorList window to the top of the z order.
+                dte.Application.ExecuteCommand( "View.ErrorList", " " );
+                
+                Log.Error($"Build failed: See the Build/Output panel for more information");
 
-                if (errors > 0)
-                {
-                    Log.Error($"Build failed: [{errors}] errors");
-                    Log.Error("See the Build/Output panel for more information");
-                    return false;
-                }
+                await Task.Yield();
+
+                return false;
             }
 
-            Log.Info($"Build succeeded{(warnings > 0 ? $", with {warnings} warnigns" : null)}{(messages > 0 ? $", with {messages} messages" : null)}");
+            Log.Info($"Build succeeded");
 
             // Publish the project so all required binaries and assets end up
             // in the output folder.
