@@ -225,21 +225,95 @@ namespace RaspberryDebugger
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
+            if (!await BuildProjectAsync(dte, solution, project, projectProperties))
+            { 
+                // bring ErrorList window to the top of the z order.
+                dte.Application.ExecuteCommand("View.ErrorList", " ");
+
+                await Task.Yield();
+
+                MessageBox.Show(
+                    """
+                    There were one or more errors building the project.
+                    Please review the Error List.
+                    """,
+                    @"Build Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+
+                return false;
+            }
+
+            await Task.Yield();
+
             if (!await PublishProjectAsync(dte, solution, project, projectProperties))
             {
+                // bring Output window to the top of the z order.
+                dte.Application.ExecuteCommand("View.Output", " ");
+
+                await Task.Yield();
+
                 MessageBox.Show(
-                    @"[dotnet publish] failed for the project.
-                    Look at the Output/Debug panel for more details.",
+                    """
+                    There were one or more errors Publishing the project.
+                    Please review the Output Window for more details.
+                    """,
                     @"Publish Failed",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
 
                 return false;
             }
-            else
+
+            return true;
+        }
+
+        /// <summary>
+        /// Builds and publishes a project locally to prepare it for being uploaded to the Raspberry.  This method
+        /// does not display error message box to the user on failures
+        /// </summary>
+        /// <param name="dte">The DTE.</param>
+        /// <param name="solution">The solution.</param>
+        /// <param name="project">The project.</param>
+        /// <param name="projectProperties">The project properties.</param>
+        /// <returns><c>true</c> on success.</returns>
+        private static async Task<bool> BuildProjectAsync(DTE2 dte, Solution solution, Project project,
+            ProjectProperties projectProperties)
+        {
+            // Build the project within the context of VS to ensure that all changed
+            // files are saved and all dependencies are built first.  Then we'll
+            // verify that there were no errors before proceeding.
+
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            // Ensure that the project is completely loaded by Visual Studio.  I've seen
+            // random crashes when building or publishing projects when VS is still loading
+            // projects.
+
+            var solutionService4 =
+                (IVsSolution4)await RaspberryDebuggerPackage.Instance.GetServiceAsync(typeof(SVsSolution));
+
+            if (solutionService4 == null)
             {
-                return true;
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalse
+                Covenant.Assert(solutionService4 != null, $"Service [{nameof(SVsSolution)}] is not available.");
             }
+
+            // Build the project to ensure that there are no compile-time errors.
+            Log.Info($"Building: {projectProperties?.FullPath}");
+
+            solution?.SolutionBuild.BuildProject(
+                solution.SolutionBuild.ActiveConfiguration.Name, project?.UniqueName, WaitForBuildToFinish: true);
+
+            // if any projects failed to build
+            if (solution.SolutionBuild.LastBuildInfo != 0)
+            {
+                return false;
+            }
+
+            Log.Info($"Build succeeded");
+
+            return true;
         }
 
         /// <summary>
@@ -253,49 +327,6 @@ namespace RaspberryDebugger
         /// <returns><c>true</c> on success.</returns>
         private static async Task<bool> PublishProjectAsync(DTE2 dte, Solution solution, Project project, ProjectProperties projectProperties)
         {
-            Covenant.Requires<ArgumentNullException>(dte != null, nameof(dte));
-            Covenant.Requires<ArgumentNullException>(solution != null, nameof(solution));
-            Covenant.Requires<ArgumentNullException>(project != null, nameof(project));
-            Covenant.Requires<ArgumentNullException>(projectProperties != null, nameof(projectProperties));
-
-            // Build the project within the context of VS to ensure that all changed
-            // files are saved and all dependencies are built first.  Then we'll
-            // verify that there were no errors before proceeding.
-
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            // Ensure that the project is completely loaded by Visual Studio.  I've seen
-            // random crashes when building or publishing projects when VS is still loading
-            // projects.
-
-            var solutionService4 = (IVsSolution4)await RaspberryDebuggerPackage.Instance.GetServiceAsync(typeof(SVsSolution));
-
-            if (solutionService4 == null)
-            {
-                // ReSharper disable once ConditionIsAlwaysTrueOrFalse
-                Covenant.Assert(solutionService4 != null, $"Service [{nameof(SVsSolution)}] is not available.");
-            }
-
-            // Build the project to ensure that there are no compile-time errors.
-            Log.Info($"Building: {projectProperties?.FullPath}");
-            
-            solution?.SolutionBuild.BuildProject(solution.SolutionBuild.ActiveConfiguration.Name, project?.UniqueName, WaitForBuildToFinish: true);
-
-            // if any projects failed to build notify and exit
-            if ( solution.SolutionBuild.LastBuildInfo != 0 )
-            {
-                // bring ErrorList window to the top of the z order.
-                dte.Application.ExecuteCommand( "View.ErrorList", " " );
-                
-                Log.Error($"Build failed: See the Build/Output panel for more information");
-
-                await Task.Yield();
-
-                return false;
-            }
-
-            Log.Info($"Build succeeded");
-
             // Publish the project so all required binaries and assets end up
             // in the output folder.
             // 
@@ -307,9 +338,7 @@ namespace RaspberryDebugger
 
             Log.Info($"Publishing: {projectProperties?.FullPath}");
 
-            await Task.Yield();
-
-            const string allowedVariableNames = 
+            const string allowedVariableNames =
                 """
                 ALLUSERSPROFILE
                 APPDATA
@@ -351,7 +380,7 @@ namespace RaspberryDebugger
                 windir
                 """;
 
-            var allowedVariables     = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
+            var allowedVariables = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
             var environmentVariables = new Dictionary<string, string>();
 
             using (var reader = new StringReader(allowedVariableNames))
@@ -375,10 +404,10 @@ namespace RaspberryDebugger
                 }
             }
 
+            ExecuteResponse response;
+
             try
             {
-                ExecuteResponse response;
-
                 if (!string.IsNullOrEmpty(projectProperties?.Framework))
                 {
                     response = await NeonHelper.ExecuteCaptureAsync(
@@ -419,22 +448,16 @@ namespace RaspberryDebugger
                     return true;
                 }
 
-                // bring ErrorList window to the top of the z order.
-                dte.Application.ExecuteCommand("View.Output", " ");
-
-                await Task.Yield();
-
                 Log.Error($"Publish failed: ExitCode={response.ExitCode}");
                 Log.WriteLine(response.AllText);
-
-                return false;
             }
             catch (Exception e)
             {
+                Log.Error($"Publish failed:");
                 Log.Error(NeonHelper.ExceptionError(e));
-                
-                return false;
             }
+
+            return false;
         }
 
         /// <summary>
