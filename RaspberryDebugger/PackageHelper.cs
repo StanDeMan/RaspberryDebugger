@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // FILE:	    PackageHelper.cs
 // CONTRIBUTOR: Jeff Lill
 // COPYRIGHT:   Copyright (c) 2021 by neonFORGE, LLC.  All rights reserved.
@@ -439,6 +439,8 @@ namespace RaspberryDebugger
             {
                 foreach (ProjectItem projectItem in project.ProjectItems)
                 {
+                    if ( projectItem.SubProject == null) continue;
+
                     GetSolutionProjects(solutionProjects, solution, projectItem.SubProject);
                 }
             }
