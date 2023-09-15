@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // FILE:	    Connection.cs
 // CONTRIBUTOR: Jeff Lill
 // COPYRIGHT:   Copyright (c) 2021 by neonFORGE, LLC.  All rights reserved.
@@ -334,7 +334,10 @@ namespace RaspberryDebugger.Connection
  
                          # Get the chip architecture
                          uname -m
- 
+
+                         # Get the kernel bit size 
+                         getconf LONG_BIT
+                          
                          # Get the current PATH
                          echo $PATH
  
@@ -404,6 +407,7 @@ namespace RaspberryDebugger.Connection
                     using (var reader = new StringReader(response.OutputText))
                     {
                         var processor    = await reader.ReadLineAsync();
+                        var kernelBit    = await reader.ReadLineAsync();
                         var path         = await reader.ReadLineAsync();
                         var hasUnzip     = await reader.ReadLineAsync() == "unzip";
                         var hasLsof      = await reader.ReadLineAsync() == "lsof";
@@ -415,6 +419,7 @@ namespace RaspberryDebugger.Connection
                         revision = revision.Trim();     // Remove any whitespace at the end.
 
                         Log($"[{Name}]: processor: {processor}");
+                        Log($"[{Name}]: kernelBit: {kernelBit}");
                         Log($"[{Name}]: path:      {path}");
                         Log($"[{Name}]: unzip:     {hasUnzip}");
                         Log($"[{Name}]: lsof:      {hasLsof}");
@@ -432,7 +437,9 @@ namespace RaspberryDebugger.Connection
 
                         if (OperatingSystem.Bitness64.Any(bitness => processor.Contains(bitness)))
                         {
-                            osBitness = SdkArchitecture.Arm64;
+                            // A 64bit arm arch running a 32 bit OS.
+                            // https://developercommunity.visualstudio.com/t/VS2022-remote-debugging-over-SSH-does-no/10394545
+                            osBitness = kernelBit == "32" ? SdkArchitecture.Arm32 : SdkArchitecture.Arm64;
                         }
 
                         // Convert the comma separated SDK names into a [PiSdk] list.
