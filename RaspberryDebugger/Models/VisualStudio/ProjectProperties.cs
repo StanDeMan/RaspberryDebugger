@@ -71,6 +71,7 @@ namespace RaspberryDebugger.Models.VisualStudio
                     OutputFolder          = null,
                     OutputFileName        = null,
                     IsExecutable          = false,
+                    Runtime               = string.Empty,
                     AssemblyName          = null,
                     DebugEnabled          = false,
                     DebugConnectionName   = null,
@@ -278,6 +279,13 @@ namespace RaspberryDebugger.Models.VisualStudio
                                         outputType == 1 && // 1=EXE
                                         isSupportedSdkVersion;
 
+            var platformTarget = (string)project.ConfigurationManager.ActiveConfiguration.Properties
+                                                .Item( "PlatformTarget" ).Value;
+
+            // For the time being make linux-arm64 the default.
+            //var runtime = string.IsNullOrEmpty( platformTarget ) ? platformTarget : $"linux-{platformTarget}";
+            var runtime = string.IsNullOrEmpty(platformTarget) ? "linux-arm64" : $"linux-{platformTarget}";
+
             // We need to jump through some hoops to obtain the project GUID.
             var solutionService = RaspberryDebuggerPackage.Instance.SolutionService;
 
@@ -296,6 +304,7 @@ namespace RaspberryDebugger.Models.VisualStudio
                 OutputFolder          = Path.Combine(projectFolder, project.ConfigurationManager.ActiveConfiguration.Properties.Item("OutputPath").Value.ToString()),
                 OutputFileName        = (string)project.Properties.Item("OutputFileName").Value,
                 IsExecutable          = outputType == 1,     // 1=EXE
+                Runtime               = runtime,
                 AssemblyName          = project.Properties.Item("AssemblyName").Value.ToString(),
                 DebugEnabled          = debugEnabled,
                 DebugConnectionName   = debugConnectionName,
@@ -484,7 +493,7 @@ namespace RaspberryDebugger.Models.VisualStudio
         /// <summary>
         /// Returns the publish runtime.
         /// </summary>
-        public string Runtime => "linux-arm";
+        public string Runtime { get; set; }
 
         /// <summary>
         /// Returns the framework version.
