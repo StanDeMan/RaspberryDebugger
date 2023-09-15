@@ -16,7 +16,6 @@ using System.Runtime.CompilerServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Threading.Tasks;
-
 using Task = System.Threading.Tasks.Task;
 
 namespace RaspberryDebugger
@@ -27,6 +26,14 @@ namespace RaspberryDebugger
     /// </summary>
     internal static class Log
     {
+        /// <summary>
+        /// Clear the debug pane
+        /// </summary>
+        public static void Clear()
+        {
+            RaspberryDebuggerPackage.LogClear();
+        }
+
         /// <summary>
         /// Writes text to the debug pane.
         /// </summary>
@@ -42,7 +49,7 @@ namespace RaspberryDebugger
         /// <param name="text">Optionally specifies the log text.</param>
         public static void WriteLine(string text = "")
         {
-            RaspberryDebuggerPackage.Log(text + "\n");
+            RaspberryDebuggerPackage.Log(text + Environment.NewLine);
         }
 
         /// <summary>
@@ -51,7 +58,7 @@ namespace RaspberryDebugger
         /// <param name="text">The information text.</param>
         public static void Info(string text)
         {
-            WriteLine($"[{PackageHelper.LogName}]: INFO: {text}");
+            WriteLine($"INFO: {text}");
         }
 
         /// <summary>
@@ -60,7 +67,7 @@ namespace RaspberryDebugger
         /// <param name="text">The error text.</param>
         public static void Error(string text)
         {
-            WriteLine($"[{PackageHelper.LogName}]: ERROR: {text}");
+            WriteLine($"ERROR: {text}");
         }
 
         /// <summary>
@@ -69,7 +76,7 @@ namespace RaspberryDebugger
         /// <param name="text">The error text.</param>
         public static void Warning(string text)
         {
-            WriteLine($"[{PackageHelper.LogName}]: WARNING: {text}");
+            WriteLine($"[WARNING: {text}");
         }
 
         /// <summary>
@@ -87,21 +94,18 @@ namespace RaspberryDebugger
             // We're going to build a multi-line message to reduce pressure
             // on the task/threading in [RaspberryDebugPackage.Log()].
 
-            var sb = new StringBuilder();
-
-            sb.Append("\n");
+            var sb = new StringBuilder().AppendLine();
 
             if (string.IsNullOrEmpty(message))
             {
-                sb.Append($"EXCEPTION: {e.GetType().FullName}: {e.Message}\n");
+                sb.AppendLine($"EXCEPTION: {e.GetType().FullName}: {e.Message}");
             }
             else
             {
-                sb.Append($"EXCEPTION: {e.GetType().FullName}: {message} {e.Message}\n");
+                sb.AppendLine($"EXCEPTION: {e.GetType().FullName}: {message} {e.Message}");
             }
 
-            sb.Append(e.StackTrace);
-            sb.Append("\n");
+            sb.AppendLine(e.StackTrace);
 
             RaspberryDebuggerPackage.Log(sb.ToString());
         }

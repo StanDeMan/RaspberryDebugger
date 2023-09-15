@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // FILE:	    RaspberryDebuggerPackage.cs
 // CONTRIBUTOR: Jeff Lill
 // COPYRIGHT:   Copyright (c) 2021 by neonFORGE, LLC.  All rights reserved.
@@ -23,7 +23,6 @@ using System.Threading;
 
 using EnvDTE;
 using EnvDTE80;
-using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using RaspberryDebugger.Commands;
@@ -129,6 +128,16 @@ namespace RaspberryDebugger
                 });
         }
 
+        /// <summary>
+        /// Clear the log output pane
+        /// </summary>
+        public static void LogClear()
+        {
+            if (Instance == null || _debugPane == null) return; // Logging hasn't been initialized yet.
+
+            _debugPane.Clear();
+        }
+
         //---------------------------------------------------------------------
         // Instance members
 
@@ -168,10 +177,7 @@ namespace RaspberryDebugger
             }
 
             // Initialize the log panel.
-            var debugWindow     = Package.GetGlobalService(typeof(SVsOutputWindow)) as IVsOutputWindow;
-            var generalPaneGuid = VSConstants.GUID_OutWindowDebugPane;
-
-            debugWindow?.GetPane(ref generalPaneGuid, out _debugPane);
+            _debugPane = GetOutputPane( Guid.NewGuid(), "Raspberry Debugger" );
 
             // VS version
             var devenvInfo = FileVersionInfo.GetVersionInfo(dte.FullName);

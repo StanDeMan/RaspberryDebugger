@@ -108,6 +108,8 @@ namespace RaspberryDebugger.Commands
         {
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
+            Log.Clear();
+
             if (!await DebugHelper.EnsureOpenSshAsync())
             {
                 return;

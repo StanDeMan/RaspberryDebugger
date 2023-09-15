@@ -64,11 +64,6 @@ namespace RaspberryDebugger
         private static readonly string ConnectionsPath;
 
         /// <summary>
-        /// The name used to prefix logged output and status bar text.
-        /// </summary>
-        public const string LogName = "raspberry";
-
-        /// <summary>
         /// Directory on the Raspberry Pi where .NET Core SDKs will be installed along with the
         /// <b>vsdbg</b> remote debugger.
         /// </summary>
@@ -689,7 +684,7 @@ namespace RaspberryDebugger
                     szWaitMessage:        description,
                     szProgressText:       null, 
                     varStatusBmpAnim:     null, 
-                    szStatusBarText:      $"[{LogName}]{description}", 
+                    szStatusBarText:      $"[Raspberry Debugger]{description}", 
                     iDelayToShowDialog:   0,
                     fIsCancelable:        false, 
                     fShowMarqueeProgress: true);
