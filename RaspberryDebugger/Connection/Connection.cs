@@ -870,24 +870,27 @@ namespace RaspberryDebugger.Connection
 
             // We're going to ZIP the program files locally and then transfer the zipped
             // files to the Raspberry to be expanded there.
+            return await PackageHelper.ExecuteWithProgressAsync(
+                $"Uploading program {programName}...",
+                async () =>
+                {
+                    var debugFolder = LinuxPath.Combine(PackageHelper.RemoteDebugBinaryRoot(Username), programName);
+                    var groupScript = string.Empty;
 
-            var debugFolder = LinuxPath.Combine(PackageHelper.RemoteDebugBinaryRoot(Username), programName);
-            var groupScript = string.Empty;
-
-            if (!string.IsNullOrEmpty(projectSettings.TargetGroup))
-            {
-                groupScript =
-                    $@"
+                    if (!string.IsNullOrEmpty(projectSettings.TargetGroup))
+                    {
+                        groupScript =
+                            $@"
                     # Add the program assembly to the user specified target group (if any).
                     # This defaults to [gpio] so users will be able to access the GPIO pins.
                     if ! chgrp {projectSettings.TargetGroup} {debugFolder}/{assemblyName} ; then
                         exit 1
                     fi
                     ";
-            }
+                    }
 
-            var uploadScript =
-                $@"
+                    var uploadScript =
+                        $@"
                 # Ensure that the debug folder exists.
                 if ! mkdir -p {debugFolder} ; then
                     exit 1
@@ -911,33 +914,35 @@ namespace RaspberryDebugger.Connection
                 exit 0
                 ";
 
-            // I'm not going to do a progress dialog because this should be fast.
-            try
-            {
-                LogInfo($"Uploading program to: [{debugFolder}]");
+                    // I'm not going to do a progress dialog because this should be fast.
+                    try
+                    {
+                        LogInfo($"Uploading program to: [{debugFolder}]");
 
-                var bundle = new CommandBundle(uploadScript);
+                        var bundle = new CommandBundle(uploadScript);
 
-                bundle.AddZip("program.zip", publishedBinaryFolder);
+                        bundle.AddZip("program.zip", publishedBinaryFolder);
 
-                var response = RunCommand(bundle);
+                        var response = RunCommand(bundle);
 
-                if (response.ExitCode == 0)
-                {
-                    LogInfo("Program uploaded");
-                    return await Task.FromResult(true);
-                }
-                else
-                {
-                    LogError(response.AllText);
-                    return await Task.FromResult(false);
-                }
-            }
-            catch (Exception e)
-            {
-                LogException(e);
-                return await Task.FromResult(false);
-            }
+                        if (response.ExitCode == 0)
+                        {
+                            LogInfo("Program uploaded");
+                            return await Task.FromResult(true);
+                        }
+                        else
+                        {
+                            LogError(response.AllText);
+                            return await Task.FromResult(false);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        LogException(e);
+                        return await Task.FromResult(false);
+                    }
+
+                });
         }
     }
 }

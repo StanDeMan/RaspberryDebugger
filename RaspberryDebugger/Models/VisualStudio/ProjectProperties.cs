@@ -513,7 +513,7 @@ namespace RaspberryDebugger.Models.VisualStudio
         /// <summary>
         /// Returns the name of the output binary file.
         /// </summary>
-        private string OutputFileName { get; set; }
+        public string OutputFileName { get; private set; }
 
         /// <summary>
         /// Indicates whether Raspberry debugging is enabled for this project.

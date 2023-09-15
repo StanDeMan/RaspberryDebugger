@@ -30,7 +30,6 @@ using EnvDTE80;
 
 using Neon.Common;
 using Neon.Windows;
-using RaspberryDebugger.Connection;
 using RaspberryDebugger.Dialogs;
 using RaspberryDebugger.Models.Connection;
 using RaspberryDebugger.Models.Project;
@@ -46,6 +45,11 @@ namespace RaspberryDebugger
     internal static class DebugHelper
     {
         private const string SupportedVersions = ".NET Core 3.1 or .NET 5 + 6";
+
+        /// <summary>
+        /// Track the last output file that was uploaded. 
+        /// </summary>
+        private static FileInfo LastUploadedFileInfo { get; set; }
 
         /// <summary>
         /// Ensures that the native Windows OpenSSH client is installed, prompting
@@ -300,7 +304,7 @@ namespace RaspberryDebugger
             }
 
             // Build the project to ensure that there are no compile-time errors.
-            Log.Info($"Building: {projectProperties?.FullPath}");
+            Log.Info($"Build Started: {projectProperties?.FullPath}, Configuration: {projectProperties.Configuration}");
 
             solution?.SolutionBuild.BuildProject(
                 solution.SolutionBuild.ActiveConfiguration.Name, project?.UniqueName, WaitForBuildToFinish: true);
@@ -336,7 +340,7 @@ namespace RaspberryDebugger
             // these can cause conflicts when we invoke [dotnet] below to
             // publish the project.
 
-            Log.Info($"Publishing: {projectProperties?.FullPath}");
+            Log.Info($"Publishing Started: {projectProperties?.FullPath}, Runtime: {projectProperties.Runtime}");
 
             const string allowedVariableNames =
                 """
@@ -444,7 +448,7 @@ namespace RaspberryDebugger
 
                 if (response.ExitCode == 0)
                 {
-                    Log.Info("Publish succeeded");
+                    Log.Info("Publish Succeeded");
                     return true;
                 }
 
@@ -615,13 +619,33 @@ namespace RaspberryDebugger
                 return null;
             }
 
-            // Upload the program binaries.
-            if (await connection.UploadProgramAsync(
-                    projectProperties?.Name, 
-                    projectProperties?.AssemblyName,
-                    projectProperties?.PublishFolder)) 
+            var fileInfo = new FileInfo(
+                Path.Combine(projectProperties.OutputFolder, projectProperties.OutputFileName));
+
+            bool shouldUploadProgram =
+                LastUploadedFileInfo == null ||
+                LastUploadedFileInfo.FullName != fileInfo.FullName ||
+                LastUploadedFileInfo.LastWriteTime != fileInfo.LastWriteTime;
+
+            if (!shouldUploadProgram)
+            {
+                Log.Info($"Skipping upload of {fileInfo.FullName}, {fileInfo.LastWriteTime}");
 
                 return connection;
+            }
+
+            Log.Info($"Uploading {fileInfo.FullName}, {fileInfo.LastWriteTime}");
+
+            // Upload the program binaries.
+            if (await connection.UploadProgramAsync(
+                    projectProperties?.Name,
+                    projectProperties?.AssemblyName,
+                    projectProperties?.PublishFolder))
+            {
+                LastUploadedFileInfo = fileInfo;
+
+                return connection;
+            }
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
