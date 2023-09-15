@@ -16,6 +16,7 @@
 // limitations under the License.
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -73,6 +74,11 @@ namespace RaspberryDebugger
         /// Returns the package instance.
         /// </summary>
         public static RaspberryDebuggerPackage Instance { get; private set; }
+
+        /// <summary>
+        /// Current VS version.
+        /// </summary>
+        public static Version VisualStudioVersion { get; private set; }
 
         /// <summary>
         /// Logs text to the Visual Studio Debug output panel.
@@ -166,6 +172,10 @@ namespace RaspberryDebugger
             var generalPaneGuid = VSConstants.GUID_OutWindowDebugPane;
 
             debugWindow?.GetPane(ref generalPaneGuid, out _debugPane);
+
+            // VS version
+            var devenvInfo = FileVersionInfo.GetVersionInfo(dte.FullName);
+            VisualStudioVersion = new Version(devenvInfo.ProductVersion);
 
             // Intercept the debugger commands and quickly decide whether the startup project is enabled
             // for Raspberry remote debugging so we can invoke our custom commands instead.  We'll just

@@ -581,6 +581,9 @@ namespace RaspberryDebugger
             }
 
             // Ensure that the debugger is installed.
+            // TODO: Visual Studio tries to update/install the package each time it attaches.
+            // Maybe only try the update/install once per session/device? Lots of permutations to track tho.
+            // Would need to quietly fail if no internet connection.
             if (!await connection.SetupDebuggerAsync())
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();

@@ -309,6 +309,10 @@ namespace RaspberryDebugger.Connection
                     // We're going to execute a script the gathers everything in a single operation for speed.
                     Log($"[{Name}]: Retrieving status");
 
+                    // VS tries to update/install the debugger on every Attach to Process command.
+                    // This conversion to user path would go away if the extension always tried the install.
+                    var userDebugFolder = PackageHelper.RemoteDebuggerFolder.Replace( "~", LinuxPath.Combine("/", "home", Username) );
+
                     var statusScript =
                         $"""
                          # This script will return the status information via STDOUT line-by-line
@@ -329,8 +333,8 @@ namespace RaspberryDebugger.Connection
  
                          # Set the SDK and debugger installation paths.
  
-                         DOTNET_ROOT={PackageHelper.RemoteDotnetFolder}
-                         DEBUGFOLDER={PackageHelper.RemoteDebuggerFolder}
+                         DOTNET_ROOT="{PackageHelper.RemoteDotnetFolder}"
+                         DEBUGFOLDER="{userDebugFolder}"
  
                          # Get the chip architecture
                          uname -m
@@ -356,7 +360,7 @@ namespace RaspberryDebugger.Connection
                          fi
  
                          # Detect whether the [vsdbg] debugger is installed.
-                         if [ -d $DEBUGFOLDER ] ; then
+                         if [ -d "$DEBUGFOLDER" ] ; then
                              echo 'debugger-installed'
                          else
                              echo 'debugger-missing'
@@ -366,8 +370,8 @@ namespace RaspberryDebugger.Connection
                          # corresponding SDK name.  We'll list the files on one line
                          # with the SDK names separated by commas.  We'll return a blank
                          # line if the SDK directory doesn't exist.
-                         if [ -d $DOTNET_ROOT/sdk ] ; then
-                             ls -m $DOTNET_ROOT/sdk
+                         if [ -d "$DOTNET_ROOT"/sdk ] ; then
+                             ls -m "$DOTNET_ROOT"/sdk
                          else
                              echo ''
                          fi
@@ -767,18 +771,18 @@ namespace RaspberryDebugger.Connection
             return await PackageHelper.ExecuteWithProgressAsync("Installing [vsdbg] debugger...",
                 async () =>
                 {
-                    var installScript =
-                        $"""
-                         if ! curl -sSL https://aka.ms/getvsdbgsh | /bin/sh /dev/stdin -v latest -l {PackageHelper.RemoteDebuggerFolder} ; then
-                             exit 1
-                         fi
-
-                         exit 0
-                         """;
+                    // Use VS paradigm for placing the debugger in the users home dir.
+                    // see: https://developercommunity.visualstudio.com/t/VS2022-remote-debugging-over-SSH-does-no/10394545#T-N10410651
+                    // This structure is used when Debug->Attach to Process is used. Unfortunately it's tied to
+                    // the VS version.
+                    // Currently the VSIX is only targeted to VS2022 so keep the version selector fixed.
+                    // TODO: Use RaspberryDebuggerPackage.VisualStudioVersion for DIR.
+                    var installCommand =
+                        $"""curl -sSL https://aka.ms/getvsdbgsh | bash /dev/stdin -v vs2022 -l {PackageHelper.RemoteDebuggerFolder}""";
 
                     try
                     {
-                        var response = SudoCommand(CommandBundle.FromScript(installScript));
+                        var response = SudoCommandAsUser(Username, installCommand);
 
                         if (response.ExitCode == 0)
                         {

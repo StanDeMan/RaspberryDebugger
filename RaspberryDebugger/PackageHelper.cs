@@ -81,8 +81,10 @@ namespace RaspberryDebugger
 
         /// <summary>
         /// Directory on the Raspberry Pi where the <b>vsdbg</b> remote debugger will be installed.
+        /// Currently the VSIX is only targeted to VS2022 so keep the version selector fixed.
+        /// TODO: Use RaspberryDebuggerPackage.VisualStudioVersion for DIR..
         /// </summary>
-        public const string RemoteDebuggerFolder = RemoteDotnetFolder + "/vsdbg";
+        public const string RemoteDebuggerFolder = "~/.vs-debugger/vs2022";
 
         /// <summary>
         /// Path to the <b>vsdbg</b> program on the remote machine.
@@ -409,6 +411,7 @@ namespace RaspberryDebugger
             foreach (ProjectItem projectItem in parentProject.ProjectItems)
             {
                 if (projectItem.SubProject == null) continue;
+
                 project = FindInSubProjects(projectItem.SubProject, projectName);
 
                 if (project != null)
