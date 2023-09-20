@@ -569,7 +569,7 @@ namespace RaspberryDebugger
             }
 
             // Ensure that the SDK is installed.
-            if (!await connection.SetupSdkAsync())
+            if (!await connection.SetupSdkAsync(projectProperties.SdkVersion))
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 

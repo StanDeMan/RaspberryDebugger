@@ -447,7 +447,7 @@ namespace RaspberryDebugger.Connection
                         }
 
                         // Convert the comma separated SDK names into a [PiSdk] list.
-                        var sdks = new List<Sdk>();
+                        var sdks = new List<SdkCatalogItem>();
 
                         foreach (var sdkName in sdkLine
                                      .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
@@ -458,7 +458,7 @@ namespace RaspberryDebugger.Connection
 
                             if (sdkCatalogItem != null)
                             {
-                                sdks.Add(new Sdk(sdkName, osBitness));
+                                sdks.Add(sdkCatalogItem);
                             }
                             else
                             {
@@ -560,14 +560,29 @@ namespace RaspberryDebugger.Connection
         /// Download and install actual (latest) SDK
         /// </summary>
         /// <returns>true if successful</returns>
-        public async Task<bool> SetupSdkAsync()
+        public async Task<bool> SetupSdkAsync(string projectSdkVersion)
         {
-            if (IsSdkPresent()) return true;
+            var sdkRequiredByProject =
+                PackageHelper.SdkCatalog.Items
+                             .OrderByDescending(item => item.Name)
+                             .FirstOrDefault(
+                                 sdk => sdk.Name == projectSdkVersion && sdk.Architecture == PiStatus.Architecture );
 
-            var targetSdk = ReadActualSdkCatalogItem();
 
-            return await DownloadSdkAsync(targetSdk) && 
-                   await InstallSdkAsync(targetSdk);
+            if ( sdkRequiredByProject == null )
+            {
+                // project requires something not available...
+                return false;
+            }
+
+            if ( this.PiStatus.InstalledSdks.Any( sdk => sdk.Name == projectSdkVersion ) )
+            {
+                // project sdk is already installed.
+                return true;
+            }
+
+            return await DownloadSdkAsync(sdkRequiredByProject) &&
+                   await InstallSdkAsync(sdkRequiredByProject);
         }
 
         /// <summary>
@@ -705,7 +720,7 @@ namespace RaspberryDebugger.Connection
                         if (response.ExitCode == 0)
                         {
                             // Add the newly installed SDK to the list of installed SDKs.
-                            PiStatus.InstalledSdks.Add(new Sdk(targetSdk.Name, targetSdk.Architecture));
+                            PiStatus.InstalledSdks.Add(targetSdk);
                             return await Task.FromResult(true);
                         }
                         else
@@ -720,39 +735,6 @@ namespace RaspberryDebugger.Connection
                         return await Task.FromResult(false);
                     }
                 });
-        }
-
-        /// <summary>
-        /// Is any .NET Core SDK installed on the Raspberry Pi.
-        /// The Raspberry architecture is driving the installation - the newest .NET Core version is taken
-        /// </summary>
-        /// <returns><c>true</c> on success.</returns>
-        private bool IsSdkPresent()
-        {
-            var sdkOnPi = PiStatus.InstalledSdks
-                .OrderByDescending(name => name.Name)
-                .FirstOrDefault();
-
-            var sdkOnPiVersion = sdkOnPi?.Name ?? string.Empty;
-            var sdkOnPiArchitecture = sdkOnPi?.Architecture ?? PiStatus.Architecture;
-
-            return PiStatus.InstalledSdks.Any(sdk => sdk.Name == sdkOnPiVersion && 
-                                                     sdk.Architecture == sdkOnPiArchitecture);
-        }
-
-        /// <summary>
-        /// Read actual (latest) SDK from catalog
-        /// </summary>
-        /// <returns>Latest target SDK</returns>
-        private SdkCatalogItem ReadActualSdkCatalogItem()
-        {
-            // Locate the standalone SDK for the request .NET version.
-            // Figure out the latest SDK version - Microsoft versioning: the highest number
-            var targetSdk = PackageHelper.SdkCatalog.Items
-                .OrderByDescending(item => item.Name)
-                .FirstOrDefault(item => item.Architecture == PiStatus.Architecture);
-
-            return targetSdk;
         }
 
         /// <summary>

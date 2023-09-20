@@ -46,7 +46,7 @@ namespace RaspberryDebugger.Connection
             bool                hasUnzip, 
             bool                hasLsof, 
             bool                hasDebugger, 
-            IEnumerable<Sdk>    installedSdks,
+            IEnumerable<SdkCatalogItem>    installedSdks,
             string              model,
             string              revision,
             SdkArchitecture     architecture)
@@ -95,7 +95,7 @@ namespace RaspberryDebugger.Connection
         /// <summary>
         /// Returns information about the .NET Core SDKs installed.
         /// </summary>
-        public List<Sdk> InstalledSdks { get; }
+        public List<SdkCatalogItem> InstalledSdks { get; }
 
         /// <summary>
         /// Returns the Raspberry board model.

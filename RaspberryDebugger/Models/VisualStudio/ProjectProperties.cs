@@ -100,7 +100,7 @@ namespace RaspberryDebugger.Models.VisualStudio
             var versionRegex = new Regex(@"(?<version>[0-9\.]+)$");
             var netVersion = SemanticVersion.Parse(versionRegex.Match(monikers[1]).Groups["version"].Value);
 
-            var targetSdk = (RaspberryDebugger.Connection.Sdk)null;
+            var targetSdk = (RaspberryDebugger.Models.Sdk.SdkCatalogItem)null;
             var targetSdkVersion = (SemanticVersion)null;
 
             foreach (var sdkItem in PackageHelper.SdkCatalog.Items)
@@ -116,7 +116,7 @@ namespace RaspberryDebugger.Models.VisualStudio
                     continue;
 
                 targetSdkVersion = sdkVersion;
-                targetSdk = new RaspberryDebugger.Connection.Sdk(sdkItem.Name, sdkItem.Architecture);
+                targetSdk = sdkItem;
             }
 
             var sdkName = targetSdk?.Name;
