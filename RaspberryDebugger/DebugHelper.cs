@@ -49,7 +49,7 @@ namespace RaspberryDebugger
         /// <summary>
         /// Track the last output file that was uploaded. 
         /// </summary>
-        private static FileInfo LastUploadedFileInfo { get; set; }
+        private static DirectoryInfo LastUploadedDirInfo { get; set; }
 
         /// <summary>
         /// Ensures that the native Windows OpenSSH client is installed, prompting
@@ -619,22 +619,23 @@ namespace RaspberryDebugger
                 return null;
             }
 
-            var fileInfo = new FileInfo(
-                Path.Combine(projectProperties.OutputFolder, projectProperties.OutputFileName));
+            var dirInfo = new DirectoryInfo(projectProperties.OutputFolder);
 
             bool shouldUploadProgram =
-                LastUploadedFileInfo == null ||
-                LastUploadedFileInfo.FullName != fileInfo.FullName ||
-                LastUploadedFileInfo.LastWriteTime != fileInfo.LastWriteTime;
+                LastUploadedDirInfo == null ||
+                LastUploadedDirInfo.FullName != dirInfo.FullName ||
+                LastUploadedDirInfo.LastWriteTime != dirInfo.LastWriteTime;
 
+            var outputFileName = Path.Combine( projectProperties.OutputFolder, projectProperties.OutputFileName );
+            
             if (!shouldUploadProgram)
             {
-                Log.Info($"Skipping upload of {fileInfo.FullName}, {fileInfo.LastWriteTime}");
+                Log.Info($"Skipping upload of {outputFileName}, {dirInfo.LastWriteTime}");
 
                 return connection;
             }
 
-            Log.Info($"Uploading {fileInfo.FullName}, {fileInfo.LastWriteTime}");
+            Log.Info($"Uploading {outputFileName}, {dirInfo.LastWriteTime}");
 
             // Upload the program binaries.
             if (await connection.UploadProgramAsync(
@@ -642,7 +643,7 @@ namespace RaspberryDebugger
                     projectProperties?.AssemblyName,
                     projectProperties?.PublishFolder))
             {
-                LastUploadedFileInfo = fileInfo;
+                LastUploadedDirInfo = dirInfo;
 
                 return connection;
             }
