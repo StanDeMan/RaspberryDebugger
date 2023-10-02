@@ -99,28 +99,7 @@ namespace RaspberryDebugger.Models.VisualStudio
             // Extract the version from the moniker.  This looks like: "Version=v5.0"
             var versionRegex = new Regex(@"(?<version>[0-9\.]+)$");
             var netVersion = SemanticVersion.Parse(versionRegex.Match(monikers[1]).Groups["version"].Value);
-
-            var targetSdk = (RaspberryDebugger.Models.Sdk.SdkCatalogItem)null;
-            var targetSdkVersion = (SemanticVersion)null;
-
-            foreach (var sdkItem in PackageHelper.SdkCatalog.Items)
-            {
-                var sdkVersion = SemanticVersion.Parse(sdkItem.Name);
-
-                if (sdkVersion.Major != netVersion.Major ||
-                    sdkVersion.Minor != netVersion.Minor)
-                    continue;
-
-                if (targetSdkVersion != null &&
-                    sdkVersion <= targetSdkVersion)
-                    continue;
-
-                targetSdkVersion = sdkVersion;
-                targetSdk = sdkItem;
-            }
-
-            var sdkName = targetSdk?.Name;
-
+            
             // Load [Properties/launchSettings.json] if present to obtain the command line
             // arguments and environment variables as well as the target connection.  Note
             // that we're going to use the profile named for the project and ignore any others.
@@ -267,12 +246,7 @@ namespace RaspberryDebugger.Models.VisualStudio
 
             // Determine whether the referenced .NET Core SDK is currently supported.
             // The bitness is not important for this - we need only the SDK version
-            var sdk = sdkName == null
-                ? null
-                : PackageHelper.SdkCatalog.Items.Find(item =>
-                    SemanticVersion.Parse(item.Name) == SemanticVersion.Parse(sdkName));
-
-            var isSupportedSdkVersion = sdk != null;
+            var isSupportedSdkVersion = netVersion.Major == 3 || netVersion.Major >= 6;
 
             // Determine whether the project is Raspberry compatible.
             var isRaspberryCompatible = isNetCore &&
@@ -300,7 +274,7 @@ namespace RaspberryDebugger.Models.VisualStudio
                 Guid                  = projectGuid,
                 Configuration         = project.ConfigurationManager.ActiveConfiguration.ConfigurationName,
                 IsNetCore             = isNetCore,
-                SdkVersion            = sdk?.Name,
+                SdkVersion            = new Version( netVersion.Major, netVersion.Minor),
                 OutputFolder          = Path.Combine(projectFolder, project.ConfigurationManager.ActiveConfiguration.Properties.Item("OutputPath").Value.ToString()),
                 OutputFileName        = (string)project.Properties.Item("OutputFileName").Value,
                 IsExecutable          = outputType == 1,     // 1=EXE
@@ -467,7 +441,7 @@ namespace RaspberryDebugger.Models.VisualStudio
         /// just the major and minor versions of the SDK.  This may also return <c>null</c>
         /// if the SDK version could not be identified.
         /// </summary>
-        public string SdkVersion { get; private set; }
+        public Version SdkVersion { get; private set; }
 
         /// <summary>
         /// Returns <c>true</c> if the project references a supported .NET Core SDK version.

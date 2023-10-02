@@ -51,8 +51,6 @@ namespace RaspberryDebugger
     /// </summary>
     internal static class PackageHelper
     {
-        private static SdkCatalog _cachedSdkCatalog;
-
         /// <summary>
         /// The path to the folder holding the Raspberry SSH private keys.
         /// </summary>
@@ -96,89 +94,6 @@ namespace RaspberryDebugger
             Covenant.Requires<ArgumentNullException>(!string.IsNullOrEmpty(username), nameof(username));
 
             return LinuxPath.Combine("/", "home", username, "vsdbg");
-        }
-
-        /// <summary>
-        /// Returns information about the all good .NET Core SDKs, including the unusable ones.
-        /// </summary>
-        public static SdkCatalog SdkCatalog
-        {
-            get
-            {
-                if (_cachedSdkCatalog != null) return _cachedSdkCatalog;
-
-                // read newest .net sdks
-                if(!ReadSdkCatalogToCache())
-                {
-                    // if no SDKs present show a message
-                    MessageBoxEx.Show(
-                        "Cannot find any SDK on page: https://dotnet.microsoft.com/en-us/download/dotnet",
-                        "No SDK found",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
-                }
-
-                return _cachedSdkCatalog;
-            }
-        }
-
-        /// <summary>
-        /// Read SDK links from hosted service
-        /// with fallback to sdk-catalog.json entries
-        /// </summary>
-        /// <returns>true if SDKs present</returns>
-        private static bool ReadSdkCatalogToCache()
-        {
-            using (new CursorWait())
-            {
-                try
-                {
-                    // try to get the catalog thru version feed service
-                    _cachedSdkCatalog = JsonConvert.DeserializeObject<SdkCatalog>(
-                        ThreadHelper.JoinableTaskFactory.Run(async () =>
-                            await new VersionsService.Feed()
-                                .ReadAsync()
-                                .WithTimeout(TimeSpan.FromSeconds(2))));
-                }
-                catch (Exception)
-                {
-                    _cachedSdkCatalog = new SdkCatalog();
-                }
-                
-                if (_cachedSdkCatalog?.Items.Any() == true) return true;
-
-                _cachedSdkCatalog = ReadIntegratedCatalog();
-            }
-
-            return true;
-        }
-
-        /// <summary>
-        /// Read assembly integrated catalog json
-        /// </summary>
-        /// <returns>SdkCatalog with SDK items</returns>
-        private static SdkCatalog ReadIntegratedCatalog()
-        {
-            try
-            {
-                // try to get the catalog thru own fetch
-                using var catalogStream = Assembly
-                    .GetExecutingAssembly()
-                    .GetManifestResourceStream("RaspberryDebugger.sdk-catalog.json");
-
-                var jsonSerializerSettings = new JsonSerializerSettings();
-                jsonSerializerSettings.Converters.Add(new StringEnumConverter());
-
-                return JsonConvert.DeserializeObject<SdkCatalog>(
-                    new StreamReader(catalogStream!).ReadToEnd(),
-                    jsonSerializerSettings);
-            }
-            catch (Exception)
-            {
-                _cachedSdkCatalog = new SdkCatalog();
-            }
-
-            return _cachedSdkCatalog;
         }
 
         /// <summary>

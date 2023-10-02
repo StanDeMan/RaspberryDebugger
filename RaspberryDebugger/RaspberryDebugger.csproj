@@ -96,8 +96,6 @@
     <Compile Include="Models\Raspberry\RaspberryModel.cs" />
     <Compile Include="Models\Raspberry\RaspberryModelCheck.cs" />
     <Compile Include="Models\Sdk\SdkArchitecture.cs" />
-    <Compile Include="Models\Sdk\SdkCatalog.cs" />
-    <Compile Include="Models\Sdk\SdkCatalogItem.cs" />
     <Compile Include="Models\Connection\AuthenticationType.cs" />
     <Compile Include="Models\VisualStudio\ProjectProperties.cs" />
     <Compile Include="OptionsPages\ConnectionsPanel.cs">
@@ -121,7 +119,6 @@
     <EmbeddedResource Include="Dialogs\SettingsDialog.resx">
       <DependentUpon>SettingsDialog.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="sdk-catalog.json" />
     <Content Include="license.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
       <IncludeInVSIX>true</IncludeInVSIX>

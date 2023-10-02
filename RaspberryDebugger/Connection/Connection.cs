@@ -447,24 +447,10 @@ namespace RaspberryDebugger.Connection
                         }
 
                         // Convert the comma separated SDK names into a [PiSdk] list.
-                        var sdks = new List<SdkCatalogItem>();
-
-                        foreach (var sdkName in sdkLine
-                                     .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                     .Select(sdk => sdk.Trim()))
-                        {
-                            var sdkCatalogItem = PackageHelper.SdkCatalog.Items
-                                .SingleOrDefault(item => item.Link.Contains(sdkName) && item.Architecture == osBitness);
-
-                            if (sdkCatalogItem != null)
-                            {
-                                sdks.Add(sdkCatalogItem);
-                            }
-                            else
-                            {
-                                LogWarning($".NET SDK [{sdkName}] is present on [{Name}] but is not known to the RaspberryDebugger extension. Consider updating the extension.");
-                            }
-                        }
+                        var sdks = sdkLine
+                                   .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                   .Select(sdk => new Version(sdk.Trim()))
+                                   .ToList();
 
                         PiStatus = new Status(
                             processor:     processor,
@@ -560,29 +546,27 @@ namespace RaspberryDebugger.Connection
         /// Download and install actual (latest) SDK
         /// </summary>
         /// <returns>true if successful</returns>
-        public async Task<bool> SetupSdkAsync(string projectSdkVersion)
+        public async Task<bool> SetupSdkAsync(Version projectSdkVersion)
         {
-            var sdkRequiredByProject =
-                PackageHelper.SdkCatalog.Items
-                             .OrderByDescending(item => item.Name)
-                             .FirstOrDefault(
-                                 sdk => sdk.Name == projectSdkVersion && sdk.Architecture == PiStatus.Architecture );
-
-
-            if ( sdkRequiredByProject == null )
+            // .NET 3.1, 6 and 7 are supported. When 8 arrives this should work.
+            if (projectSdkVersion.Major != 3 &&
+                projectSdkVersion.Major < 6 )
             {
                 // project requires something not available...
                 return false;
             }
 
-            if ( this.PiStatus.InstalledSdks.Any( sdk => sdk.Name == projectSdkVersion ) )
+            if ( this.PiStatus.InstalledSdks.Any( sdk => sdk.Major == projectSdkVersion.Major &&
+                                                         sdk.Minor == projectSdkVersion.Minor) )
             {
                 // project sdk is already installed.
                 return true;
             }
 
-            return await DownloadSdkAsync(sdkRequiredByProject) &&
-                   await InstallSdkAsync(sdkRequiredByProject);
+            LogInfo($"The project requires .NET SDK {projectSdkVersion} which is not installed.");
+
+            return await this.InstallSdkPrerequsitesAsync() &&
+                   await InstallSdkAsync(projectSdkVersion);
         }
 
         /// <summary>
@@ -590,29 +574,14 @@ namespace RaspberryDebugger.Connection
         /// The Raspberry architecture is driving the installation - the newest .NET Core version is taken
         /// </summary>
         /// <returns><c>true</c> on success.</returns>
-        private async Task<bool> DownloadSdkAsync(SdkCatalogItem targetSdk)
+        private async Task<bool> InstallSdkPrerequsitesAsync()
         {
-            if (targetSdk == null)
-            {
-                LogError("RasberryDebug is unaware of .NET Core SDK.");
-                LogError("Try updating the RasberryDebug extension or report this issue at:");
-                LogError("https://github.com/nforgeio/RaspberryDebugger/issues");
-
-                return await Task.FromResult(false);
-            }
-            else
-            {
-                LogInfo($".NET Core SDK [v{targetSdk.Release}] is not installed.");
-            }
-
             // Install the SDK.
-            LogInfo($"Downlaoding SDK v{targetSdk.Release}");
-            
-            var downloadSdkInfo = 
-                $"Download SDK for .NET v{targetSdk.Release} " +
-                $"({targetSdk.Architecture.GetAttributeOfType<EnumMemberAttribute>().Value}) on Raspberry...";
+            LogInfo($"Ensure that the packages required by .NET are installed");
 
-            return await PackageHelper.ExecuteWithProgressAsync(downloadSdkInfo,
+            // https://learn.microsoft.com/en-us/dotnet/core/install/linux-ubuntu#dependencies
+            return await PackageHelper.ExecuteWithProgressAsync(
+                $"Setup prerequsites for .NET SDK on Raspberry {this.connectionInfo.Host}...",
                 async () =>
                 {
                     var downloadScript =
@@ -627,17 +596,6 @@ namespace RaspberryDebugger.Connection
                              exit 1
                          fi
  
-                         # Remove any existing SDK download.  This might be
-                         # present if a previous installation attempt failed.
-                         if ! rm -f /tmp/dotnet-sdk.tar.gz ; then
-                             exit 1
-                         fi
- 
-                         # Download the SDK installation file to a temporary file.
-                         if ! wget --quiet -O /tmp/dotnet-sdk.tar.gz {targetSdk.Link} ; then
-                             exit 1
-                         fi
- 
                          exit 0
                          """;
 
@@ -647,6 +605,7 @@ namespace RaspberryDebugger.Connection
 
                         if (response.ExitCode == 0)
                         {
+                            LogInfo(response.AllText);
                             return await Task.FromResult(true);
                         }
                         else
@@ -664,63 +623,50 @@ namespace RaspberryDebugger.Connection
         }
 
         /// <summary>
+        /// Don't care about value, ToString result is important!
+        /// </summary>
+        enum SdkQuality
+        {
+            preview,
+
+            // The final stable releases of the .NET SDK and Runtime. Intended for public use as well as production support.
+            GA
+        }
+
+        /// <summary>
         /// Installs the .NET Core SDK on the Raspberry if it's not already installed.
         /// The Raspberry architecture is driving the installation - the newest .NET Core version is taken
         /// </summary>
         /// <returns><c>true</c> on success.</returns>
-        private async Task<bool> InstallSdkAsync(SdkCatalogItem targetSdk)
+        private async Task<bool> InstallSdkAsync(Version targetSdk)
         {
-            // Install the SDK.
-            LogInfo($"Installing SDK v{targetSdk.Release}");
-            
-            var installSdkInfo = 
-                $"Install SDK for .NET v{targetSdk.Release} " +
-                $"({targetSdk.Architecture.GetAttributeOfType<EnumMemberAttribute>().Value}) on Raspberry...";
+            var sdkQuality = SdkQuality.GA; 
 
-            return await PackageHelper.ExecuteWithProgressAsync(installSdkInfo,
+            // Install the SDK.
+            LogInfo($"Installing .NET SDK {targetSdk}");
+
+            // Use the install script to install the latest version of the .NET SDK rather than use the
+            // PackageHelper.SdkCatalog list which must be updated manually. It doesn't require looking
+            // up the link to the SDK install package. 
+            // TODO? Should this be run every time to update?
+            // TODO? Use a JSON file to control updates
+            // see: https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script
+            var installCommand =
+                $"""curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel {targetSdk.ToString(2)} --quality {sdkQuality} --install-dir {PackageHelper.RemoteDotnetFolder}""";
+
+            return await PackageHelper.ExecuteWithProgressAsync(
+                $"Installing .NET SDK {targetSdk} on Raspberry {this.connectionInfo.Host}...",
                 async () =>
                 {
-                    var installScript =
-                        $"""
-                         export DOTNET_ROOT={PackageHelper.RemoteDotnetFolder}
- 
-                         # Verify the SHA512.
-                         orgDir=$cwd
-                         cd /tmp
- 
-                         if ! echo '{targetSdk.Sha512} dotnet-sdk.tar.gz' | sha512sum --check - ; then
-                             cd $orgDir
-                             exit 1
-                         fi
- 
-                         cd $orgDir
- 
-                         # Make sure the installation directory exists.
-                         if ! mkdir -p $DOTNET_ROOT ; then
-                             exit 1
-                         fi
- 
-                         # Unpack the SDK to the installation directory.
-                         if ! tar -zxf /tmp/dotnet-sdk.tar.gz -C $DOTNET_ROOT --no-same-owner ; then
-                             exit 1
-                         fi
- 
-                         # Remove the temporary installation file.
-                         if ! rm /tmp/dotnet-sdk.tar.gz ; then
-                             exit 1
-                         fi
- 
-                         exit 0
-                         """;
-
                     try
                     {
-                        var response = SudoCommand(CommandBundle.FromScript(installScript));
+                        var response = SudoCommand(installCommand);
 
                         if (response.ExitCode == 0)
                         {
                             // Add the newly installed SDK to the list of installed SDKs.
-                            PiStatus.InstalledSdks.Add(targetSdk);
+                            //PiStatus.InstalledSdks.Add(targetSdk);
+                            LogInfo(response.AllText);
                             return await Task.FromResult(true);
                         }
                         else

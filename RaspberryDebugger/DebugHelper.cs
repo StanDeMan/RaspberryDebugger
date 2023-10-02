@@ -172,7 +172,7 @@ namespace RaspberryDebugger
                 return null;
             }
 
-            if (string.IsNullOrEmpty(projectProperties.SdkVersion))
+            if ( projectProperties.SdkVersion == null )
             {
                 MessageBox.Show(
                     @"The .NET Core SDK version could not be identified.",
@@ -183,12 +183,10 @@ namespace RaspberryDebugger
                 return null;
             }
 
-            var sdkVersion = Version.Parse(projectProperties.SdkVersion);
-
             if (!projectProperties.IsSupportedSdkVersion)
             {
                 MessageBox.Show(
-                    $@"The .NET Core SDK [{sdkVersion}] is not currently supported. Only .NET Core versions [v3.1] or later will ever be supported
+                    $@"The .NET Core SDK [{projectProperties.SdkVersion}] is not currently supported. Only .NET Core versions [v3.1] or later will ever be supported
                     Note that we currently support only official SDKs (not previews or release candidates) and we check for new .NET Core SDKs every week or two.  
                     Submit an issue if you really need support for a new SDK ASAP:	
                     https://github.com/nforgeio/RaspberryDebugger/issues",
@@ -574,7 +572,7 @@ namespace RaspberryDebugger
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 MessageBoxEx.Show(
-                    $"Cannot install the .NET SDK [v{connection.PiStatus}] on the Raspberry.\r\n\r\nCheck the Debug Output for more details.",
+                    $"Installation of the .NET SDK {projectProperties.SdkVersion} on the Raspberry was unsuccessful.\r\n\r\nCheck the Debug Output for more details.",
                     "SDK Installation Failed",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
