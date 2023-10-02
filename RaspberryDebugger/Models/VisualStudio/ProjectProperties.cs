@@ -257,6 +257,7 @@ namespace RaspberryDebugger.Models.VisualStudio
                                                 .Item( "PlatformTarget" ).Value;
 
             // For the time being make linux-arm64 the default.
+            // <RuntimeIdentifier>linux-arm64</RuntimeIdentifier>
             //var runtime = string.IsNullOrEmpty( platformTarget ) ? platformTarget : $"linux-{platformTarget}";
             var runtime = string.IsNullOrEmpty(platformTarget) ? "linux-arm64" : $"linux-{platformTarget}";
 

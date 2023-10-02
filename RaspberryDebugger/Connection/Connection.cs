@@ -546,7 +546,7 @@ namespace RaspberryDebugger.Connection
         /// Download and install actual (latest) SDK
         /// </summary>
         /// <returns>true if successful</returns>
-        public async Task<bool> SetupSdkAsync(Version projectSdkVersion)
+        public async Task<bool> SetupSdkAsync(Version projectSdkVersion, Status piStatus )
         {
             // .NET 3.1, 6 and 7 are supported. When 8 arrives this should work.
             if (projectSdkVersion.Major != 3 &&
@@ -566,7 +566,7 @@ namespace RaspberryDebugger.Connection
             LogInfo($"The project requires .NET SDK {projectSdkVersion} which is not installed.");
 
             return await this.InstallSdkPrerequsitesAsync() &&
-                   await InstallSdkAsync(projectSdkVersion);
+                   await InstallSdkAsync(projectSdkVersion, piStatus);
         }
 
         /// <summary>
@@ -638,9 +638,14 @@ namespace RaspberryDebugger.Connection
         /// The Raspberry architecture is driving the installation - the newest .NET Core version is taken
         /// </summary>
         /// <returns><c>true</c> on success.</returns>
-        private async Task<bool> InstallSdkAsync(Version targetSdk)
+        private async Task<bool> InstallSdkAsync(Version targetSdk, Status piStatus)
         {
-            var sdkQuality = SdkQuality.GA; 
+            var verbose = string.Empty;// "--verbose";
+            var sdkQuality = SdkQuality.GA;
+
+            var arch = piStatus.Architecture == SdkArchitecture.Arm64 ?
+                "arm64" :
+                "arm";
 
             // Install the SDK.
             LogInfo($"Installing .NET SDK {targetSdk}");
@@ -652,7 +657,7 @@ namespace RaspberryDebugger.Connection
             // TODO? Use a JSON file to control updates
             // see: https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-install-script
             var installCommand =
-                $"""curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel {targetSdk.ToString(2)} --quality {sdkQuality} --install-dir {PackageHelper.RemoteDotnetFolder}""";
+                $"""curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --architecture {arch} --channel {targetSdk.ToString(2)} --quality {sdkQuality} --install-dir {PackageHelper.RemoteDotnetFolder} {verbose}""";
 
             return await PackageHelper.ExecuteWithProgressAsync(
                 $"Installing .NET SDK {targetSdk} on Raspberry {this.connectionInfo.Host}...",
