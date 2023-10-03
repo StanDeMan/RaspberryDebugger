@@ -125,7 +125,7 @@ namespace RaspberryDebugger.Connection
 
                 try
                 {
-                    var connection = await ConnectAsync(connectionInfo, usePassword: true);
+                    var connection = await ConnectAsync(connectionInfo, usePassword: true, projectSettings);
 
                     // Append the public key to the user's [authorized_keys] file if it's
                     // not already present.
@@ -648,7 +648,7 @@ namespace RaspberryDebugger.Connection
                 "arm";
 
             // Install the SDK.
-            LogInfo($"Installing .NET SDK {targetSdk}");
+            LogInfo($"Installing .NET SDK {targetSdk} {arch}");
 
             // Use the install script to install the latest version of the .NET SDK rather than use the
             // PackageHelper.SdkCatalog list which must be updated manually. It doesn't require looking
@@ -660,7 +660,7 @@ namespace RaspberryDebugger.Connection
                 $"""curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --architecture {arch} --channel {targetSdk.ToString(2)} --quality {sdkQuality} --install-dir {PackageHelper.RemoteDotnetFolder} {verbose}""";
 
             return await PackageHelper.ExecuteWithProgressAsync(
-                $"Installing .NET SDK {targetSdk} on Raspberry {this.connectionInfo.Host}...",
+                $"Installing .NET SDK {targetSdk} {arch} on Raspberry {this.connectionInfo.Host}...",
                 async () =>
                 {
                     try
