@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <MinimumVisualStudioVersion>16.0</MinimumVisualStudioVersion>
@@ -149,32 +149,32 @@
       <Version>15.0.6142705</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.ManagedInterfaces">
-      <Version>17.5.33428.366</Version>
+      <Version>17.10.40152</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.ProjectSystem">
-      <Version>15.8.243</Version>
+      <Version>17.9.380</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.7.37357" ExcludeAssets="runtime">
+    <PackageReference Include="Microsoft.VisualStudio.SDK" Version="17.11.40262" ExcludeAssets="runtime">
       <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Utilities">
-      <Version>17.7.37355</Version>
+      <Version>17.11.40262</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Utilities.Internal">
-      <Version>16.3.42</Version>
+      <Version>16.3.73</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.7.2196">
+    <PackageReference Include="Microsoft.VSSDK.BuildTools" Version="17.12.2069">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Neon.Common">
-      <Version>2.18.2</Version>
+      <Version>4.0.12</Version>
     </PackageReference>
     <PackageReference Include="Neon.Cryptography">
-      <Version>2.18.2</Version>
+      <Version>4.0.12</Version>
     </PackageReference>
     <PackageReference Include="Neon.SSH">
-      <Version>2.18.2</Version>
+      <Version>4.0.12</Version>
     </PackageReference>
     <PackageReference Include="Newtonsoft.Json">
       <Version>13.0.3</Version>
@@ -183,10 +183,10 @@
       <Version>2.9.1</Version>
     </PackageReference>
     <PackageReference Include="Polly">
-      <Version>7.2.4</Version>
+      <Version>8.4.2</Version>
     </PackageReference>
     <PackageReference Include="StreamJsonRpc">
-      <Version>2.16.36</Version>
+      <Version>2.19.27</Version>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
