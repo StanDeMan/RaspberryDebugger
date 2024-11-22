@@ -219,6 +219,48 @@
     </Content>
   </ItemGroup>
   <ItemGroup />
+	<UsingTask TaskName="UpdateVsixManifestVersion" TaskFactory="CodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+		<ParameterGroup>
+			<FilePath ParameterType="System.String" Required="true" />
+			<Version ParameterType="System.String" Required="true" />
+		</ParameterGroup>
+		<Task>
+			<Using Namespace="System" />
+			<Using Namespace="System.IO" />
+			<Using Namespace="System.Text.RegularExpressions" />
+			<Code Type="Fragment" Language="cs">
+				<![CDATA[
+        string content = File.ReadAllText(FilePath);
+        string updatedContent = Regex.Replace(content, 
+          "<Identity Id=\"Raspberry Debugger\\.4f9de82d-0bbe-493c-8c12-9dbd38e93008\" Version=\".*?\" Language=\"en-US\" Publisher=\"GingerMintSoft\" />", 
+          string.Format("<Identity Id=\"Raspberry Debugger.4f9de82d-0bbe-493c-8c12-9dbd38e93008\" Version=\"{0}\" Language=\"en-US\" Publisher=\"GingerMintSoft\" />", Version));
+        File.WriteAllText(FilePath, updatedContent);
+      ]]>
+			</Code>
+		</Task>
+	</UsingTask>
+
+	<Target Name="SetVersion" BeforeTargets="BeforeBuild">
+		<PropertyGroup>
+			<VsixVersion>3.3.$(Year)$(DayOfYear).$(Time)</VsixVersion>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<VsixManifestFile Include="source.extension.vsixmanifest" />
+		</ItemGroup>
+
+		<Message Text="Updating VSIX manifest version to $(VsixVersion)" Importance="High" />
+
+		<UpdateVsixManifestVersion
+			FilePath="source.extension.vsixmanifest"
+			Version="$(VsixVersion)" />
+	</Target>
+
+	<PropertyGroup>
+		<Year>$([System.DateTime]::Now.Year)</Year>
+		<DayOfYear>$([System.DateTime]::Now.DayOfYear)</DayOfYear>
+		<Time>$([System.DateTime]::Now.ToString("HHmm"))</Time>
+	</PropertyGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(VSToolsPath)\VSSDK\Microsoft.VsSDK.targets" Condition="'$(VSToolsPath)' != ''" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
