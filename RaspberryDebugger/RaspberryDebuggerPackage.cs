@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // FILE:	    RaspberryDebuggerPackage.cs
 // CONTRIBUTOR: Jeff Lill
 // COPYRIGHT:   Copyright (c) 2021 by neonFORGE, LLC.  All rights reserved.
@@ -16,13 +16,13 @@
 // limitations under the License.
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.Contracts;
 using System.Runtime.InteropServices;
 using System.Threading;
 
 using EnvDTE;
 using EnvDTE80;
-using Microsoft.VisualStudio;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using RaspberryDebugger.Commands;
@@ -75,6 +75,11 @@ namespace RaspberryDebugger
         public static RaspberryDebuggerPackage Instance { get; private set; }
 
         /// <summary>
+        /// Current VS version.
+        /// </summary>
+        public static Version VisualStudioVersion { get; private set; }
+
+        /// <summary>
         /// Logs text to the Visual Studio Debug output panel.
         /// </summary>
         /// <param name="text">The output text.</param>
@@ -123,13 +128,22 @@ namespace RaspberryDebugger
                 });
         }
 
+        /// <summary>
+        /// Clear the log output pane
+        /// </summary>
+        public static void LogClear()
+        {
+            if (Instance == null || _debugPane == null) return; // Logging hasn't been initialized yet.
+
+            _debugPane.Clear();
+        }
+
         //---------------------------------------------------------------------
         // Instance members
 
         private DTE2 dte;
         private CommandEvents debugStartCommandEvent;
         private CommandEvents debugStartWithoutDebuggingCommandEvent;
-        private CommandEvents debugAttachToProcessCommandEvent;
         private CommandEvents debugRestartCommandEvent;
 #pragma warning disable IDE0051 // Remove unused private members
         private readonly bool debugMode = false;
@@ -163,10 +177,11 @@ namespace RaspberryDebugger
             }
 
             // Initialize the log panel.
-            var debugWindow     = Package.GetGlobalService(typeof(SVsOutputWindow)) as IVsOutputWindow;
-            var generalPaneGuid = VSConstants.GUID_OutWindowDebugPane;
+            _debugPane = GetOutputPane( Guid.NewGuid(), "Raspberry Debugger" );
 
-            debugWindow?.GetPane(ref generalPaneGuid, out _debugPane);
+            // VS version
+            var devenvInfo = FileVersionInfo.GetVersionInfo(dte.FullName);
+            VisualStudioVersion = new Version(devenvInfo.ProductVersion);
 
             // Intercept the debugger commands and quickly decide whether the startup project is enabled
             // for Raspberry remote debugging so we can invoke our custom commands instead.  We'll just
@@ -174,19 +189,16 @@ namespace RaspberryDebugger
             // debugging.
             debugStartCommandEvent = dte.Events.CommandEvents["{5EFC7975-14BC-11CF-9B2B-00AA00573819}", 0x0127];
             debugStartWithoutDebuggingCommandEvent = dte.Events.CommandEvents["{5EFC7975-14BC-11CF-9B2B-00AA00573819}", 0x0170];
-            debugAttachToProcessCommandEvent = dte.Events.CommandEvents["{5EFC7975-14BC-11CF-9B2B-00AA00573819}", 0x00d5];
             debugRestartCommandEvent = dte.Events.CommandEvents["{5EFC7975-14BC-11CF-9B2B-00AA00573819}", 0x0128];
 
             debugStartCommandEvent.BeforeExecute += DebugStartCommandEvent_BeforeExecute;
             debugStartWithoutDebuggingCommandEvent.BeforeExecute += DebugStartWithoutDebuggingCommandEvent_BeforeExecute;
-            debugAttachToProcessCommandEvent.BeforeExecute += AttachToProcessCommandEvent_BeforeExecute;
             debugRestartCommandEvent.BeforeExecute += DebugRestartCommandEvent_BeforeExecute;
 
             // Initialize the new commands.
             await SettingsCommand.InitializeAsync(this);
             await DebugStartCommand.InitializeAsync(this);
             await DebugStartWithoutDebuggingCommand.InitializeAsync(this);
-            await DebugAttachToProcessCommand.InitializeAsync(this);
         }
 
         /// <summary>
@@ -302,24 +314,6 @@ namespace RaspberryDebugger
 
             cancelDefault = true;
             ExecuteCommand(DebugStartWithoutDebuggingCommand.CommandSet, DebugStartWithoutDebuggingCommand.CommandId);
-        }
-
-        /// <summary>
-        /// Debug.AttachToProcess
-        /// </summary>
-        private void AttachToProcessCommandEvent_BeforeExecute(string guid, int id, object customIn, object customOut, ref bool cancelDefault)
-        {
-            ThreadHelper.ThrowIfNotOnUIThread();
-
-            var connectionName = GetConnectionName();
-
-            if (connectionName == null)
-            {
-                return;
-            }
-
-            cancelDefault = true;
-            ExecuteCommand(DebugAttachToProcessCommand.CommandSet, DebugAttachToProcessCommand.CommandId);
         }
 
         /// <summary>

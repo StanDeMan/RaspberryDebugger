@@ -1,4 +1,4 @@
-﻿//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // FILE:	    DebugHelper.cs
 // CONTRIBUTOR: Jeff Lill
 // COPYRIGHT:   Copyright (c) 2021 by neonFORGE, LLC.  All rights reserved.
@@ -30,7 +30,6 @@ using EnvDTE80;
 
 using Neon.Common;
 using Neon.Windows;
-using RaspberryDebugger.Connection;
 using RaspberryDebugger.Dialogs;
 using RaspberryDebugger.Models.Connection;
 using RaspberryDebugger.Models.Project;
@@ -46,6 +45,12 @@ namespace RaspberryDebugger
     internal static class DebugHelper
     {
         private const string SupportedVersions = ".NET Core 3.1 or .NET 5 + 6";
+
+        /// <summary>
+        /// Track the last output file that was uploaded. 
+        /// </summary>
+        private static DirectoryInfo LastUploadedDirInfo { get; set; }
+
         /// <summary>
         /// Ensures that the native Windows OpenSSH client is installed, prompting
         /// the user to install it if necessary.
@@ -167,7 +172,7 @@ namespace RaspberryDebugger
                 return null;
             }
 
-            if (string.IsNullOrEmpty(projectProperties.SdkVersion))
+            if ( projectProperties.SdkVersion == null )
             {
                 MessageBox.Show(
                     @"The .NET Core SDK version could not be identified.",
@@ -178,12 +183,10 @@ namespace RaspberryDebugger
                 return null;
             }
 
-            var sdkVersion = Version.Parse(projectProperties.SdkVersion);
-
             if (!projectProperties.IsSupportedSdkVersion)
             {
                 MessageBox.Show(
-                    $@"The .NET Core SDK [{sdkVersion}] is not currently supported. Only .NET Core versions [v3.1] or later will ever be supported
+                    $@"The .NET Core SDK [{projectProperties.SdkVersion}] is not currently supported. Only .NET Core versions [v3.1] or later will ever be supported
                     Note that we currently support only official SDKs (not previews or release candidates) and we check for new .NET Core SDKs every week or two.  
                     Submit an issue if you really need support for a new SDK ASAP:	
                     https://github.com/nforgeio/RaspberryDebugger/issues",
@@ -224,21 +227,95 @@ namespace RaspberryDebugger
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
+            if (!await BuildProjectAsync(dte, solution, project, projectProperties))
+            { 
+                // bring ErrorList window to the top of the z order.
+                dte.Application.ExecuteCommand("View.ErrorList", " ");
+
+                await Task.Yield();
+
+                MessageBox.Show(
+                    """
+                    There were one or more errors building the project.
+                    Please review the Error List.
+                    """,
+                    @"Build Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+
+                return false;
+            }
+
+            await Task.Yield();
+
             if (!await PublishProjectAsync(dte, solution, project, projectProperties))
             {
+                // bring Output window to the top of the z order.
+                dte.Application.ExecuteCommand("View.Output", " ");
+
+                await Task.Yield();
+
                 MessageBox.Show(
-                    @"[dotnet publish] failed for the project.
-                    Look at the Output/Debug panel for more details.",
+                    """
+                    There were one or more errors Publishing the project.
+                    Please review the Output Window for more details.
+                    """,
                     @"Publish Failed",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
 
                 return false;
             }
-            else
+
+            return true;
+        }
+
+        /// <summary>
+        /// Builds and publishes a project locally to prepare it for being uploaded to the Raspberry.  This method
+        /// does not display error message box to the user on failures
+        /// </summary>
+        /// <param name="dte">The DTE.</param>
+        /// <param name="solution">The solution.</param>
+        /// <param name="project">The project.</param>
+        /// <param name="projectProperties">The project properties.</param>
+        /// <returns><c>true</c> on success.</returns>
+        private static async Task<bool> BuildProjectAsync(DTE2 dte, Solution solution, Project project,
+            ProjectProperties projectProperties)
+        {
+            // Build the project within the context of VS to ensure that all changed
+            // files are saved and all dependencies are built first.  Then we'll
+            // verify that there were no errors before proceeding.
+
+            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+            // Ensure that the project is completely loaded by Visual Studio.  I've seen
+            // random crashes when building or publishing projects when VS is still loading
+            // projects.
+
+            var solutionService4 =
+                (IVsSolution4)await RaspberryDebuggerPackage.Instance.GetServiceAsync(typeof(SVsSolution));
+
+            if (solutionService4 == null)
             {
-                return true;
+                // ReSharper disable once ConditionIsAlwaysTrueOrFalse
+                Covenant.Assert(solutionService4 != null, $"Service [{nameof(SVsSolution)}] is not available.");
             }
+
+            // Build the project to ensure that there are no compile-time errors.
+            Log.Info($"Build Started: {projectProperties?.FullPath}, Configuration: {projectProperties.Configuration}");
+
+            solution?.SolutionBuild.BuildProject(
+                solution.SolutionBuild.ActiveConfiguration.Name, project?.UniqueName, WaitForBuildToFinish: true);
+
+            // if any projects failed to build
+            if (solution.SolutionBuild.LastBuildInfo != 0)
+            {
+                return false;
+            }
+
+            Log.Info($"Build succeeded");
+
+            return true;
         }
 
         /// <summary>
@@ -252,52 +329,6 @@ namespace RaspberryDebugger
         /// <returns><c>true</c> on success.</returns>
         private static async Task<bool> PublishProjectAsync(DTE2 dte, Solution solution, Project project, ProjectProperties projectProperties)
         {
-            Covenant.Requires<ArgumentNullException>(dte != null, nameof(dte));
-            Covenant.Requires<ArgumentNullException>(solution != null, nameof(solution));
-            Covenant.Requires<ArgumentNullException>(project != null, nameof(project));
-            Covenant.Requires<ArgumentNullException>(projectProperties != null, nameof(projectProperties));
-
-            // Build the project within the context of VS to ensure that all changed
-            // files are saved and all dependencies are built first.  Then we'll
-            // verify that there were no errors before proceeding.
-
-            await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
-
-            // Ensure that the project is completely loaded by Visual Studio.  I've seen
-            // random crashes when building or publishing projects when VS is still loading
-            // projects.
-
-            var solutionService4 = (IVsSolution4)await RaspberryDebuggerPackage.Instance.GetServiceAsync(typeof(SVsSolution));
-
-            if (solutionService4 == null)
-            {
-                // ReSharper disable once ConditionIsAlwaysTrueOrFalse
-                Covenant.Assert(solutionService4 != null, $"Service [{nameof(SVsSolution)}] is not available.");
-            }
-
-            // Build the project to ensure that there are no compile-time errors.
-
-            Log.Info($"Building: {projectProperties?.FullPath}");
-
-            solution?.SolutionBuild.BuildProject(solution.SolutionBuild.ActiveConfiguration.Name, project?.UniqueName, WaitForBuildToFinish: true);
-
-            var errorList = dte?.ToolWindows.ErrorList.ErrorItems;
-
-            if (errorList?.Count > 0)
-            {
-                for (var i = 1; i <= errorList.Count; i++)
-                {
-                    var error = errorList.Item(i);
-                    Log.Error($"{error.FileName}({error.Line},{error.Column}: {error.Description})");
-                }
-
-                Log.Error($"Build failed: [{errorList.Count}] errors");
-                Log.Error("See the Build/Output panel for more information");
-                return false;
-            }
-
-            Log.Info("Build succeeded");
-
             // Publish the project so all required binaries and assets end up
             // in the output folder.
             // 
@@ -307,12 +338,10 @@ namespace RaspberryDebugger
             // these can cause conflicts when we invoke [dotnet] below to
             // publish the project.
 
-            Log.Info($"Publishing: {projectProperties?.FullPath}");
+            Log.Info($"Publishing Started: {projectProperties?.FullPath}, Runtime: {projectProperties.Runtime}");
 
-            await Task.Yield();
-
-            const string allowedVariableNames = 
-                @"
+            const string allowedVariableNames =
+                """
                 ALLUSERSPROFILE
                 APPDATA
                 architecture
@@ -351,9 +380,9 @@ namespace RaspberryDebugger
                 USERNAME
                 USERPROFILE
                 windir
-                ";
+                """;
 
-            var allowedVariables     = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
+            var allowedVariables = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
             var environmentVariables = new Dictionary<string, string>();
 
             using (var reader = new StringReader(allowedVariableNames))
@@ -377,10 +406,10 @@ namespace RaspberryDebugger
                 }
             }
 
+            ExecuteResponse response;
+
             try
             {
-                ExecuteResponse response;
-
                 if (!string.IsNullOrEmpty(projectProperties?.Framework))
                 {
                     response = await NeonHelper.ExecuteCaptureAsync(
@@ -417,21 +446,20 @@ namespace RaspberryDebugger
 
                 if (response.ExitCode == 0)
                 {
-                    Log.Info("Publish succeeded");
+                    Log.Info("Publish Succeeded");
                     return true;
                 }
 
                 Log.Error($"Publish failed: ExitCode={response.ExitCode}");
                 Log.WriteLine(response.AllText);
-
-                return false;
             }
             catch (Exception e)
             {
+                Log.Error($"Publish failed:");
                 Log.Error(NeonHelper.ExceptionError(e));
-                
-                return false;
             }
+
+            return false;
         }
 
         /// <summary>
@@ -539,12 +567,12 @@ namespace RaspberryDebugger
             }
 
             // Ensure that the SDK is installed.
-            if (!await connection.SetupSdkAsync())
+            if (!await connection.SetupSdkAsync(projectProperties.SdkVersion, connection.PiStatus))
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 MessageBoxEx.Show(
-                    $"Cannot install the .NET SDK [v{connection.PiStatus}] on the Raspberry.\r\n\r\nCheck the Debug Output for more details.",
+                    $"Installation of the .NET SDK {projectProperties.SdkVersion} on the Raspberry was unsuccessful.\r\n\r\nCheck the Debug Output for more details.",
                     "SDK Installation Failed",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
@@ -555,6 +583,9 @@ namespace RaspberryDebugger
             }
 
             // Ensure that the debugger is installed.
+            // TODO: Visual Studio tries to update/install the package each time it attaches.
+            // Maybe only try the update/install once per session/device? Lots of permutations to track tho.
+            // Would need to quietly fail if no internet connection.
             if (!await connection.SetupDebuggerAsync())
             {
                 await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -570,13 +601,50 @@ namespace RaspberryDebugger
                 return null;
             }
 
-            // Upload the program binaries.
-            if (await connection.UploadProgramAsync(
-                    projectProperties?.Name, 
-                    projectProperties?.AssemblyName,
-                    projectProperties?.PublishFolder)) 
+            // Ensure that linux libraries are installed.
+            if (!await connection.SetupLinuxDependenciesAsync())
+            {
+                await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
+
+                MessageBoxEx.Show(
+                    "Cannot install the Linux dependencies on the Raspberry.\r\n\r\nCheck the Debug Output for more details.",
+                    "Linux Dependencies Installation Failed",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+
+                connection.Dispose();
+
+                return null;
+            }
+
+            var dirInfo = new DirectoryInfo(projectProperties.OutputFolder);
+
+            bool shouldUploadProgram =
+                LastUploadedDirInfo == null ||
+                LastUploadedDirInfo.FullName != dirInfo.FullName ||
+                LastUploadedDirInfo.LastWriteTime != dirInfo.LastWriteTime;
+
+            var outputFileName = Path.Combine( projectProperties.OutputFolder, projectProperties.OutputFileName );
+            
+            if (!shouldUploadProgram)
+            {
+                Log.Info($"Skipping upload of {outputFileName}, {dirInfo.LastWriteTime}");
 
                 return connection;
+            }
+
+            Log.Info($"Uploading {outputFileName}, {dirInfo.LastWriteTime}");
+
+            // Upload the program binaries.
+            if (await connection.UploadProgramAsync(
+                    projectProperties?.Name,
+                    projectProperties?.AssemblyName,
+                    projectProperties?.PublishFolder))
+            {
+                LastUploadedDirInfo = dirInfo;
+
+                return connection;
+            }
 
             await ThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
@@ -592,4 +660,3 @@ namespace RaspberryDebugger
         }
     }
 }
-

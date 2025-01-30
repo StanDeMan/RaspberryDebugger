@@ -71,6 +71,7 @@ namespace RaspberryDebugger.Models.VisualStudio
                     OutputFolder          = null,
                     OutputFileName        = null,
                     IsExecutable          = false,
+                    Runtime               = string.Empty,
                     AssemblyName          = null,
                     DebugEnabled          = false,
                     DebugConnectionName   = null,
@@ -98,28 +99,7 @@ namespace RaspberryDebugger.Models.VisualStudio
             // Extract the version from the moniker.  This looks like: "Version=v5.0"
             var versionRegex = new Regex(@"(?<version>[0-9\.]+)$");
             var netVersion = SemanticVersion.Parse(versionRegex.Match(monikers[1]).Groups["version"].Value);
-
-            var targetSdk = (RaspberryDebugger.Connection.Sdk)null;
-            var targetSdkVersion = (SemanticVersion)null;
-
-            foreach (var sdkItem in PackageHelper.SdkCatalog.Items)
-            {
-                var sdkVersion = SemanticVersion.Parse(sdkItem.Name);
-
-                if (sdkVersion.Major != netVersion.Major ||
-                    sdkVersion.Minor != netVersion.Minor)
-                    continue;
-
-                if (targetSdkVersion != null &&
-                    sdkVersion <= targetSdkVersion)
-                    continue;
-
-                targetSdkVersion = sdkVersion;
-                targetSdk = new RaspberryDebugger.Connection.Sdk(sdkItem.Name, sdkItem.Architecture);
-            }
-
-            var sdkName = targetSdk?.Name;
-
+            
             // Load [Properties/launchSettings.json] if present to obtain the command line
             // arguments and environment variables as well as the target connection.  Note
             // that we're going to use the profile named for the project and ignore any others.
@@ -266,17 +246,20 @@ namespace RaspberryDebugger.Models.VisualStudio
 
             // Determine whether the referenced .NET Core SDK is currently supported.
             // The bitness is not important for this - we need only the SDK version
-            var sdk = sdkName == null
-                ? null
-                : PackageHelper.SdkCatalog.Items.Find(item =>
-                    SemanticVersion.Parse(item.Name) == SemanticVersion.Parse(sdkName));
-
-            var isSupportedSdkVersion = sdk != null;
+            var isSupportedSdkVersion = netVersion.Major == 3 || netVersion.Major >= 6;
 
             // Determine whether the project is Raspberry compatible.
             var isRaspberryCompatible = isNetCore &&
                                         outputType == 1 && // 1=EXE
                                         isSupportedSdkVersion;
+
+            var platformTarget = (string)project.ConfigurationManager.ActiveConfiguration.Properties
+                                                .Item( "PlatformTarget" ).Value;
+
+            // For the time being make linux-arm64 the default.
+            // <RuntimeIdentifier>linux-arm64</RuntimeIdentifier>
+            //var runtime = string.IsNullOrEmpty( platformTarget ) ? platformTarget : $"linux-{platformTarget}";
+            var runtime = string.IsNullOrEmpty(platformTarget) ? "linux-arm64" : $"linux-{platformTarget}";
 
             // We need to jump through some hoops to obtain the project GUID.
             var solutionService = RaspberryDebuggerPackage.Instance.SolutionService;
@@ -292,10 +275,11 @@ namespace RaspberryDebugger.Models.VisualStudio
                 Guid                  = projectGuid,
                 Configuration         = project.ConfigurationManager.ActiveConfiguration.ConfigurationName,
                 IsNetCore             = isNetCore,
-                SdkVersion            = sdk?.Name,
+                SdkVersion            = new Version( netVersion.Major, netVersion.Minor),
                 OutputFolder          = Path.Combine(projectFolder, project.ConfigurationManager.ActiveConfiguration.Properties.Item("OutputPath").Value.ToString()),
                 OutputFileName        = (string)project.Properties.Item("OutputFileName").Value,
                 IsExecutable          = outputType == 1,     // 1=EXE
+                Runtime               = runtime,
                 AssemblyName          = project.Properties.Item("AssemblyName").Value.ToString(),
                 DebugEnabled          = debugEnabled,
                 DebugConnectionName   = debugConnectionName,
@@ -458,7 +442,7 @@ namespace RaspberryDebugger.Models.VisualStudio
         /// just the major and minor versions of the SDK.  This may also return <c>null</c>
         /// if the SDK version could not be identified.
         /// </summary>
-        public string SdkVersion { get; private set; }
+        public Version SdkVersion { get; private set; }
 
         /// <summary>
         /// Returns <c>true</c> if the project references a supported .NET Core SDK version.
@@ -484,7 +468,7 @@ namespace RaspberryDebugger.Models.VisualStudio
         /// <summary>
         /// Returns the publish runtime.
         /// </summary>
-        public string Runtime => "linux-arm";
+        public string Runtime { get; set; }
 
         /// <summary>
         /// Returns the framework version.
@@ -504,7 +488,7 @@ namespace RaspberryDebugger.Models.VisualStudio
         /// <summary>
         /// Returns the name of the output binary file.
         /// </summary>
-        private string OutputFileName { get; set; }
+        public string OutputFileName { get; private set; }
 
         /// <summary>
         /// Indicates whether Raspberry debugging is enabled for this project.
